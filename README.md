@@ -1,7 +1,7 @@
-# INVEX
+# DeltaFeed
 
-INVEX is a two-part repository. The visible surface is a volatility-exploitation
-trading system; the research instrument it embeds is **DeltaFeed**, an
+DeltaFeed is a two-part repository. The visible surface is a volatility-exploitation
+trading system called **INVEX**; the research instrument it embeds is **DeltaFeed**, an
 experimental harness for measuring how AI coding agents perform when
 architecture is treated as a controlled variable rather than an emergent
 outcome.

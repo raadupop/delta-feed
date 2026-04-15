@@ -1,0 +1,37 @@
+{
+  "_comment": "COVID first spike — VIX 17→25 on 2020-02-24. First pandemic signal against pre-crisis window.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-14T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2020-01-27 .. 2020-02-21 (last 20 trading-day closes)",
+    "current_value_date": "2020-02-24"
+  },
+  "symbol": "VIX",
+  "last_update": "2020-02-21T00:00:00+00:00",
+  "window": [
+    14.56, 18.23, 16.28, 16.39, 15.49, 18.84, 17.97, 16.05, 15.15, 14.96,
+    15.47, 15.04, 15.18, 13.74, 14.15, 13.68, 14.83, 14.38, 15.56, 17.08
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 25.03,
+      "timestamp": "2020-02-24T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.25,
+    "score_max": 0.40,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "z ~ 6.5 vs calm window. Current implementation returns ~0.31. Trader note: a senior desk would weight this higher; the statistical anomaly and the trading instinct diverge — LIMITATIONS.md #4. Acceptance band matches current statistical output; any recalibration must justify the shift."
+  }
+}

@@ -1,0 +1,300 @@
+openapi: 3.1.0
+info:
+  title: Invex Classification Service
+  version: 0.1.0
+  description: |
+    Service-local API contract for the Python classification engine.
+
+    This contract is scoped to what external HTTP callers can observe. It does
+    not describe strategy internals, tuning parameters, or rolling-window state.
+    Those are implementation concerns governed by `HARNESS.md` and the
+    fitness-function suite under `tests/architecture/`.
+
+    The repo-level `doc/INVEX-API-v1.yaml` describes the .NET-facing external
+    API and is unrelated to this file. Per CLAUDE.md the Python service is
+    constant infrastructure across all six .NET architecture iterations.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Readiness probe
+      description: |
+        Returns 200 once bootstrap is complete. Returns 503 during startup while
+        rolling windows are being populated from external APIs.
+      responses:
+        "200":
+          description: Service ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReady"
+        "503":
+          description: Service bootstrapping
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthNotReady"
+
+  /classify:
+    post:
+      summary: Classify a signal
+      description: |
+        Routes the request to the appropriate strategy based on
+        `source_category` and `payload_type`, and returns a score with
+        certainty breakdown and audit trail.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassifyRequest"
+      responses:
+        "200":
+          description: Classification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassifyResponse"
+        "422":
+          description: |
+            Pydantic validation error or unsupported source_category/payload_type
+            combination.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+        "501":
+          description: Strategy is a scaffold stub (not yet implemented).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+        "503":
+          description: Service is still bootstrapping rolling windows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+
+components:
+  schemas:
+    SourceCategory:
+      type: string
+      enum: [MARKET_DATA, MACROECONOMIC, GEOPOLITICAL, CROSS_ASSET_FLOW]
+
+    PayloadType:
+      type: string
+      enum: [STRUCTURED, UNSTRUCTURED]
+
+    ScoreType:
+      type: string
+      description: |
+        Discriminator telling the consumer what `score` represents.
+        ANOMALY_DETECTION is produced by MARKET_DATA, MACROECONOMIC,
+        CROSS_ASSET_FLOW. EVENT_ASSESSMENT is produced by GEOPOLITICAL
+        strategies.
+      enum: [ANOMALY_DETECTION, EVENT_ASSESSMENT]
+
+    ClassificationMethod:
+      type: string
+      enum: [AI_MODEL, RULE_BASED]
+
+    UnitInterval:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+
+    MarketDataPayload:
+      type: object
+      required: [symbol, current_value, timestamp]
+      additionalProperties: false
+      properties:
+        symbol:
+          type: string
+          examples: ["VIX", "OVX"]
+        current_value:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    MacroeconomicPayload:
+      type: object
+      required: [indicator, actual, expected, release_timestamp]
+      additionalProperties: false
+      properties:
+        indicator:
+          type: string
+          examples: ["CPI_YOY", "INITIAL_CLAIMS"]
+        actual:
+          type: number
+        expected:
+          type: number
+        release_timestamp:
+          type: string
+          format: date-time
+
+    GeopoliticalPayload:
+      type: object
+      required: [event_type, region, severity_estimate]
+      additionalProperties: false
+      properties:
+        event_type:
+          type: string
+        region:
+          type: string
+        severity_estimate:
+          $ref: "#/components/schemas/UnitInterval"
+        source_url:
+          type: [string, "null"]
+
+    CrossAssetFlowPayload:
+      type: object
+      required: [basket_prices, timestamp]
+      additionalProperties: false
+      properties:
+        basket_prices:
+          type: object
+          additionalProperties:
+            type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    UnstructuredPayload:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          default: en
+        source_url:
+          type: [string, "null"]
+
+    ClassifyRequest:
+      type: object
+      required: [source_category, payload_type]
+      additionalProperties: false
+      properties:
+        source_category:
+          $ref: "#/components/schemas/SourceCategory"
+        payload_type:
+          $ref: "#/components/schemas/PayloadType"
+        structured_payload:
+          description: |
+            Present when payload_type = STRUCTURED. Shape is one of
+            MarketDataPayload, MacroeconomicPayload, GeopoliticalPayload,
+            CrossAssetFlowPayload depending on source_category. The classifier
+            re-parses it to the concrete type after dispatch.
+          oneOf:
+            - $ref: "#/components/schemas/MarketDataPayload"
+            - $ref: "#/components/schemas/MacroeconomicPayload"
+            - $ref: "#/components/schemas/GeopoliticalPayload"
+            - $ref: "#/components/schemas/CrossAssetFlowPayload"
+            - type: "null"
+        unstructured_payload:
+          description: Present when payload_type = UNSTRUCTURED.
+          oneOf:
+            - $ref: "#/components/schemas/UnstructuredPayload"
+            - type: "null"
+
+    ClassifyResponse:
+      type: object
+      required: [score, score_type, certainty, classification_method, reasoning_trace, computed_metrics]
+      additionalProperties: false
+      properties:
+        score:
+          $ref: "#/components/schemas/UnitInterval"
+        score_type:
+          $ref: "#/components/schemas/ScoreType"
+        certainty:
+          $ref: "#/components/schemas/UnitInterval"
+        source_reliability:
+          description: |
+            Source reliability dimension of certainty (accuracy / trustworthiness
+            of the source). Optional when not independently computed.
+          oneOf:
+            - $ref: "#/components/schemas/UnitInterval"
+            - type: "null"
+        temporal_relevance:
+          description: |
+            Temporal relevance dimension of certainty (1.0 means the market has
+            not yet absorbed the signal). Optional when not independently
+            computed.
+          oneOf:
+            - $ref: "#/components/schemas/UnitInterval"
+            - type: "null"
+        event_taxonomy:
+          type: [string, "null"]
+        classification_method:
+          $ref: "#/components/schemas/ClassificationMethod"
+        reasoning_trace:
+          type: string
+          minLength: 1
+          description: Audit trail. Always present.
+        computed_metrics:
+          type: object
+          description: |
+            Strategy-specific intermediate values (z_score, baseline_mean,
+            baseline_std, surprise_magnitude, ...). Schema-open by design — the
+            .NET caller uses these to populate OpenAPI response fields on its
+            side. Individual keys are not part of this contract; the existence
+            of the envelope is.
+          additionalProperties: true
+
+    WindowStaleness:
+      type: object
+      required: [values_count]
+      properties:
+        values_count:
+          type: integer
+          minimum: 0
+        last_update:
+          type: string
+          format: date-time
+        staleness_seconds:
+          type: number
+          minimum: 0
+
+    HealthReady:
+      type: object
+      required: [status, windows]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ready]
+        windows:
+          type: object
+          description: |
+            Per-window readiness and staleness. Keys are namespaced as
+            `<SOURCE_CATEGORY>/<identifier>`, e.g. `MARKET_DATA/VIX`.
+          additionalProperties:
+            $ref: "#/components/schemas/WindowStaleness"
+
+    HealthNotReady:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [not_ready]
+
+    ErrorDetail:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object

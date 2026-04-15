@@ -1,0 +1,38 @@
+{
+  "_comment": "AXIS EXERCISER — INITIAL_CLAIMS (weekly cadence). Exists to make the per-indicator-frequency bug manifest in black-box tests. See doc/adr/0001-per-indicator-tuning-parameters.md. Expected xfail(strict=True) until Phase B extracts per-indicator tuning from the request payload.",
+  "status": "PENDING DATA PULL — /trader must source seed window from FRED ICSA and pick a real release date with a documented surprise.",
+  "source": {
+    "provider": "FRED",
+    "series_id": "ICSA",
+    "description": "Initial Claims, weekly, seasonally adjusted",
+    "url": "https://fred.stlouisfed.org/series/ICSA",
+    "retrieved_at": null,
+    "window_range": null,
+    "current_value_date": null,
+    "consensus_provider": "Bloomberg-consensus / Reuters-poll (archived)"
+  },
+  "indicator": "INITIAL_CLAIMS",
+  "last_update": "1970-01-01T00:00:00+00:00",
+  "window": [],
+  "request": {
+    "source_category": "MACROECONOMIC",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "indicator": "INITIAL_CLAIMS",
+      "actual": 0.0,
+      "expected": 0.0,
+      "release_timestamp": "1970-01-01T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.0,
+    "score_max": 1.0,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "rationale_pending_trader": "Band and values placeholder until /trader sources a real ICSA release with consensus miss. The point of this anchor is the FREQUENCY axis: temporal_relevance for a weekly indicator must not be computed with the monthly (30-day) expected frequency that `macroeconomic.py` currently hardcodes."
+  },
+  "xfail": {
+    "reason": "ADR-0001 — macroeconomic.py uses a per-strategy _EXPECTED_FREQUENCY_SECONDS of 30 days; a weekly indicator yields incorrect temporal_relevance staleness decay. Phase B removes the module-level constant by sourcing `expected_frequency_seconds` from the request payload per indicator. Additionally, this anchor is PENDING DATA PULL — the seed window and release values must be sourced from FRED ICSA + archived consensus before the xfail can become an xpass.",
+    "strict": true
+  }
+}

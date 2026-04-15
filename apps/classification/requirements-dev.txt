@@ -1,0 +1,15 @@
+# Dev-only dependencies for the harness suite.
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+# Contract validation (used by tests/acceptance/test_contract_shapes.py)
+openapi-spec-validator==0.7.1
+jsonschema==4.23.0
+PyYAML==6.0.2
+
+# Fitness suite — tools behind tests/architecture/
+import-linter==2.1
+ruff==0.7.4
+mypy==1.13.0
+xenon==0.9.3
+vulture==2.14

@@ -1,0 +1,40 @@
+{
+  "_comment": "CPI YoY 9.1% vs 8.6% consensus — peak inflation print (release 2022-07-13).",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "actual_provider": "BLS",
+    "actual_series_id": "CUUR0000SA0",
+    "actual_release": "CPI-U, All items, 12-month change — June 2022 release",
+    "actual_url": "https://www.bls.gov/news.release/archives/cpi_07132022.htm",
+    "expected_provider": "Bloomberg-consensus / Reuters-poll (archived pre-release survey)",
+    "window_provider": "BLS historical releases 2019-2021 |actual - consensus|",
+    "retrieved_at": "2026-04-14T00:00:00Z",
+    "window_range": "approx 30 monthly releases preceding 2022-06-10"
+  },
+  "indicator": "CPI_YOY",
+  "last_update": "2022-06-10T12:30:00+00:00",
+  "window": [
+    0.0, 0.2, 0.1, 0.1, 0.1, 0.0, 0.1, 0.2, 0.1, 0.0,
+    0.1, 0.1, 0.0, 0.1, 0.0, 0.2, 0.5, 0.2, 0.4, 0.1,
+    0.1, 0.1, 0.4, 0.2, 0.2, 0.3, 0.0, 0.2, 0.1, 0.2
+  ],
+  "request": {
+    "source_category": "MACROECONOMIC",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "indicator": "CPI_YOY",
+      "actual": 9.1,
+      "expected": 8.6,
+      "release_timestamp": "2022-07-13T12:30:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.80,
+    "score_max": 0.92,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.95,
+    "temporal_relevance_min": 0.85,
+    "rationale_pending_trader": "0.5pp upside surprise during peak-inflation regime — unambiguously a material signal. Current implementation returns ~0.87."
+  }
+}

@@ -1,0 +1,128 @@
+# pyproject.toml — tool configuration for the classification service.
+#
+# Runtime deps are declared in `requirements.txt`; dev deps in
+# `requirements-dev.txt`. This file configures the fitness-function toolchain
+# so the same rules are visible to IDEs, pre-commit, and `tests/architecture/`.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+# Focused, recognized-principle rule set — not a shotgun. Additions should
+# cite the principle they enforce (Fowler refactoring, PEP 8, McCabe, etc.).
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear (Fowler "Replace Error Code with Exception" etc.)
+    "SIM",   # flake8-simplify (DRY, Fowler "Consolidate Duplicate Conditional")
+    "C90",   # mccabe complexity
+    "PLR",   # pylint refactor (magic numbers PLR2004, too-many-branches PLR0912, etc.)
+]
+ignore = [
+    # Long strings in reasoning traces / prompts are fine.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests intentionally use literal constants for expected values — that is the test.
+"tests/**/*.py" = ["PLR2004", "PLR0911", "PLR0912", "PLR0915"]
+"main.py" = ["PLR0912", "PLR0915"]
+# TODO(ADR-0001): remove these exemptions in Phase B together with the
+# module-level `_TANH_SCALE` / `_EXPECTED_FREQUENCY_SECONDS` constants they
+# cover. The ADR is the authoritative tracker; this entry is the concrete
+# waiver so the fitness suite is green today without hiding the debt.
+"app/strategies/market_data.py" = ["PLR2004"]
+"app/strategies/macroeconomic.py" = ["PLR2004"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# Start strict on the boundary layers; widen in Phase B.
+files = ["app/models", "app/routing", "app/strategies"]
+# External libs without stubs — keep the signal high, not drowned in missing stubs.
+ignore_missing_imports = true
+# FastAPI / Pydantic v2 patterns require a few relaxations that are standard.
+disable_error_code = ["misc"]
+
+[tool.importlinter]
+root_packages = ["app"]
+
+[[tool.importlinter.contracts]]
+name = "strategies are peers — no strategy-to-strategy imports"
+type = "forbidden"
+source_modules = ["app.strategies.market_data"]
+forbidden_modules = [
+    "app.strategies.macroeconomic",
+    "app.strategies.cross_asset",
+    "app.strategies.geopolitical",
+]
+
+[[tool.importlinter.contracts]]
+name = "strategies are peers — macroeconomic must not import peers"
+type = "forbidden"
+source_modules = ["app.strategies.macroeconomic"]
+forbidden_modules = [
+    "app.strategies.market_data",
+    "app.strategies.cross_asset",
+    "app.strategies.geopolitical",
+]
+
+[[tool.importlinter.contracts]]
+name = "strategies are peers — cross_asset must not import peers"
+type = "forbidden"
+source_modules = ["app.strategies.cross_asset"]
+forbidden_modules = [
+    "app.strategies.market_data",
+    "app.strategies.macroeconomic",
+    "app.strategies.geopolitical",
+]
+
+[[tool.importlinter.contracts]]
+name = "strategies are peers — geopolitical must not import peers"
+type = "forbidden"
+source_modules = ["app.strategies.geopolitical"]
+forbidden_modules = [
+    "app.strategies.market_data",
+    "app.strategies.macroeconomic",
+    "app.strategies.cross_asset",
+]
+
+[[tool.importlinter.contracts]]
+name = "models are pure — no imports from app.* except typing"
+type = "forbidden"
+source_modules = ["app.models"]
+forbidden_modules = [
+    "app.strategies",
+    "app.routing",
+    "app.state",
+    "app.config",
+]
+
+[[tool.importlinter.contracts]]
+# Clean Architecture: inbound dependency direction.
+# Routing depends on strategies; strategies depend on state/models; state/models
+# do not depend on strategies or routing.
+name = "layered dependencies"
+type = "layers"
+layers = [
+    "app.routing",
+    "app.strategies",
+    "app.state | app.models | app.config",
+]
+
+[tool.vulture]
+min_confidence = 80
+paths = ["app"]
+exclude = ["tests/fixtures"]
+# FastAPI / pytest-discovered symbols are intentionally "unused" from a static view.
+ignore_decorators = [
+    "@app.get", "@app.post", "@app.exception_handler",
+    "@pytest.fixture", "@pytest.mark.*",
+]
+ignore_names = ["lifespan"]

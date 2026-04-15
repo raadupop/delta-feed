@@ -1,0 +1,28 @@
+{
+  "symbol": "VIX",
+  "last_update": "2020-02-21T00:00:00Z",
+  "window": [
+    14.56, 18.23, 16.28, 16.39, 15.49, 18.84, 17.97, 16.05, 15.15, 14.96,
+    15.47, 15.04, 15.18, 13.74, 14.15, 13.68, 14.83, 14.38, 15.56, 17.08
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 25.03,
+      "timestamp": "2020-02-24T00:00:00Z"
+    }
+  },
+  "expected": {
+    "score": 0.3124,
+    "score_type": "ANOMALY_DETECTION",
+    "certainty": 0.9,
+    "source_reliability": 0.9,
+    "temporal_relevance": 1.0,
+    "z_score": 6.4635,
+    "baseline_mean": 15.6515,
+    "baseline_std": 1.451,
+    "classification_method": "RULE_BASED"
+  }
+}

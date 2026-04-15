@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run:*)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/test_bootstrap_integration.py -v)",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest *)",
+      "WebFetch(domain:*)",
+      "WebFetch(domain:fred.stlouisfed.org)",
+      "Bash(python -c \"from app.config import settings; print\\(''FRED key loaded:'', bool\\(settings.fred_api_key\\), ''| length:'', len\\(settings.fred_api_key\\)\\)\")",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python -m json.tool)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(*)",
+      "Bash(python3 *)",
+      "Bash(pip *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Write(./production.*)"
+    ],
+    "allowedTools": [
+      "Read",
+      "Write",
+      "Bash(git *)",
+      "Bash(uv *)",
+      "Bash(pytest *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run ruff format \"$file\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "_comment": "Volmageddon — VIX 10→37 spike on 2018-02-05. Extreme z-score against a calm pre-event window.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-14T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2018-01-08 .. 2018-02-02 (last 20 trading-day closes)",
+    "current_value_date": "2018-02-05"
+  },
+  "symbol": "VIX",
+  "last_update": "2018-02-02T00:00:00+00:00",
+  "window": [
+    10.18, 11.04, 9.77, 9.15, 9.22, 9.22, 9.52, 10.08, 9.82, 9.88,
+    10.16, 11.66, 11.91, 12.22, 11.27, 11.03, 11.10, 11.47, 11.58, 11.08
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 37.32,
+      "timestamp": "2018-02-05T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.85,
+    "score_max": 0.92,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "Volmageddon — extreme move (3.6x the window mean, >25 std devs). Current implementation returns ~0.88; band [0.85, 0.92] survives tanh_scale 18-22 but catches regressions."
+  }
+}

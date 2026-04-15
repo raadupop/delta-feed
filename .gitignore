@@ -1,0 +1,44 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+
+# Testing & tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+.coverage
+.coverage.*
+coverage.xml
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code (user-local only — shared settings.json is committed)
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (track .yaml files, ignore everything else)
+doc/*
+!doc/*.yaml
+
+# Empty placeholders
+apps/core/

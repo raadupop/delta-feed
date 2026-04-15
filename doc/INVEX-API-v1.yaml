@@ -1,0 +1,1528 @@
+openapi: 3.0.3
+info:
+  title: Invex API
+  description: |
+    External interface contract for the Invex volatility-exploitation system.
+    Companion to Invex SRS v2.3.1 (ISO/IEC/IEEE 29148:2018).
+
+    This specification defines the system's external boundary — the sole surface
+    exercised by the API acceptance test suite (EVO-001). Every architecture
+    iteration implements this contract identically.
+
+    **Design principles:**
+    - Contract-first: this spec exists before implementation.
+    - Black-box: no reference to internal types, layers, or persistence.
+    - Iteration-stable: identical across all six architecture iterations.
+  version: "1.0.0"
+  contact:
+    name: Invex Project
+
+servers:
+  - url: http://localhost:{port}/api
+    description: Local development / test
+    variables:
+      port:
+        default: "5000"
+
+tags:
+  - name: Admin Ingestion
+    description: Load signals into the system. Used for historical data loading and testing.
+  - name: Classification
+    description: Query signal assessments, composite scores, and IV dislocations.
+  - name: Decisions
+    description: Query deploy/idle decisions.
+  - name: Positions
+    description: Query constructed positions.
+  - name: Exits
+    description: Query position exits.
+  - name: Risk
+    description: Query portfolio-level risk state.
+  - name: Audit
+    description: Query the append-only decision audit trail.
+  - name: Observability
+    description: Query structured logs by correlation chain.
+  - name: Configuration
+    description: Change configurable parameters without code modification.
+  - name: Replay
+    description: Point-in-time event replay.
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ────────────────────────────────────────────────────────────────────
+  # ADMIN INGESTION
+  # ────────────────────────────────────────────────────────────────────
+  /admin/signals:
+    post:
+      operationId: ingestSignals
+      tags: [Admin Ingestion]
+      summary: Submit signals for processing
+      description: |
+        Accepts pre-formed signal payloads. Production ingestion runs as a
+        background job polling external sources; this endpoint provides a
+        direct entry point for historical data loading and API acceptance testing.
+
+        Each signal is validated independently against its source category
+        schema. Invalid signals are rejected individually; valid signals in
+        the same batch are still processed.
+
+        Requires ADMIN privileges (SRS SEC-001).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestSignalsRequest"
+      responses:
+        "202":
+          description: Batch accepted. Some signals may have been individually rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestSignalsResponse"
+        "400":
+          description: Entire request malformed (not valid JSON, not an array).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ────────────────────────────────────────────────────────────────────
+  # CLASSIFICATION
+  # ────────────────────────────────────────────────────────────────────
+  /classification/composite:
+    get:
+      operationId: getCompositeScore
+      tags: [Classification]
+      summary: Get the most recent composite exploitability score
+      description: |
+        Returns the most recent Composite Score. If `as_of` is provided,
+        returns the composite using only signals with timestamp <= as_of
+        (SRS SIG-004, ANA-001).
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Composite score.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompositeScore"
+        "404":
+          description: No composite score available (no signals ingested).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /classification/assessments:
+    get:
+      operationId: getAssessments
+      tags: [Classification]
+      summary: List signal assessments
+      parameters:
+        - name: signal_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by originating signal.
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Array of signal assessments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SignalAssessment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /classification/dislocation:
+    get:
+      operationId: getDislocation
+      tags: [Classification]
+      summary: Get the most recent IV dislocation
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: IV dislocation entity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IvDislocation"
+        "404":
+          description: No dislocation available.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # DECISIONS
+  # ────────────────────────────────────────────────────────────────────
+  /decisions:
+    get:
+      operationId: listDecisions
+      tags: [Decisions]
+      summary: List decisions within a time range
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Array of decision records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DecisionRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /decisions/{decision_id}:
+    get:
+      operationId: getDecision
+      tags: [Decisions]
+      summary: Get a single decision with full detail
+      parameters:
+        - name: decision_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Decision record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionRecord"
+        "404":
+          description: Decision not found.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # POSITIONS
+  # ────────────────────────────────────────────────────────────────────
+  /positions:
+    get:
+      operationId: listPositions
+      tags: [Positions]
+      summary: List positions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/PositionStatus"
+          description: Filter by status.
+      responses:
+        "200":
+          description: Array of position records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PositionRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /positions/{position_id}:
+    get:
+      operationId: getPosition
+      tags: [Positions]
+      summary: Get a single position with leg detail
+      parameters:
+        - name: position_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Position record including legs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionRecord"
+        "404":
+          description: Position not found.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # EXITS
+  # ────────────────────────────────────────────────────────────────────
+  /exits:
+    get:
+      operationId: listExits
+      tags: [Exits]
+      summary: List exit records
+      parameters:
+        - name: position_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by position.
+      responses:
+        "200":
+          description: Array of exit records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExitRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # RISK
+  # ────────────────────────────────────────────────────────────────────
+  /risk/status:
+    get:
+      operationId: getRiskStatus
+      tags: [Risk]
+      summary: Get current portfolio-level risk state
+      responses:
+        "200":
+          description: Risk status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # AUDIT
+  # ────────────────────────────────────────────────────────────────────
+  /audit:
+    get:
+      operationId: listAuditEntries
+      tags: [Audit]
+      summary: Query the append-only audit trail
+      description: |
+        Returns audit entries. This endpoint is strictly read-only.
+        PUT, PATCH, and DELETE return 405 (SRS AUD-001).
+      parameters:
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by audited entity.
+        - name: event_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditEventType"
+          description: Filter by event type.
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Array of audit entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: auditPut
+      tags: [Audit]
+      summary: Not allowed — append-only
+      responses:
+        "405":
+          description: Method Not Allowed. Audit trail is append-only (SRS AUD-001).
+    patch:
+      operationId: auditPatch
+      tags: [Audit]
+      summary: Not allowed — append-only
+      responses:
+        "405":
+          description: Method Not Allowed. Audit trail is append-only (SRS AUD-001).
+    delete:
+      operationId: auditDelete
+      tags: [Audit]
+      summary: Not allowed — append-only
+      responses:
+        "405":
+          description: Method Not Allowed. Audit trail is append-only (SRS AUD-001).
+
+  # ────────────────────────────────────────────────────────────────────
+  # OBSERVABILITY
+  # ────────────────────────────────────────────────────────────────────
+  /logs:
+    get:
+      operationId: getLogsByCorrelation
+      tags: [Observability]
+      summary: Get structured log entries by correlation chain
+      description: Returns all log entries sharing a correlation ID, spanning ingestion through decision (SRS OBS-001).
+      parameters:
+        - name: correlation_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Array of structured log entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ────────────────────────────────────────────────────────────────────
+  # CONFIGURATION
+  # ────────────────────────────────────────────────────────────────────
+  /config/weighting-scheme:
+    put:
+      operationId: setWeightingScheme
+      tags: [Configuration]
+      summary: Set the active weighting scheme for composite scoring
+      description: Takes effect on next processing cycle. No restart required (SRS NFR-003).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeightingScheme"
+      responses:
+        "200":
+          description: Scheme updated.
+        "400":
+          description: Invalid scheme (e.g., weights reference unknown category).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/deploy-conditions:
+    put:
+      operationId: setDeployConditions
+      tags: [Configuration]
+      summary: Configure decision engine deploy conditions
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployConditionsConfig"
+      responses:
+        "200":
+          description: Conditions updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/dislocation-threshold:
+    put:
+      operationId: setDislocationThreshold
+      tags: [Configuration]
+      summary: Set IV dislocation threshold for deploy condition
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [threshold]
+              properties:
+                threshold:
+                  type: number
+                  format: double
+                  description: Dislocation >= threshold triggers deploy condition.
+                reference_instrument:
+                  type: string
+                  description: |
+                    Instrument for MarketObservedIV. Default: VIX.
+                    Configurable per deployment context (SRS CLS-006).
+                sensitivity_factor_map:
+                  type: object
+                  additionalProperties:
+                    type: number
+                    format: double
+                  description: |
+                    Maps volatility regime labels to SENSITIVITY_FACTOR values.
+                    E.g., {"low_vol": 1.5, "normal": 1.0, "high_vol": 0.6}.
+                    Higher in low-vol (more repricing room), lower in high-vol
+                    (diminishing marginal impact). SRS CLS-006.
+                regime_boundaries:
+                  type: object
+                  additionalProperties:
+                    type: number
+                    format: double
+                  description: |
+                    Reference instrument thresholds defining regime transitions.
+                    E.g., {"low_vol_upper": 15.0, "high_vol_lower": 25.0}.
+      responses:
+        "200":
+          description: Threshold updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/risk-limits:
+    put:
+      operationId: setRiskLimits
+      tags: [Configuration]
+      summary: Set portfolio-level risk parameters
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RiskLimitsConfig"
+      responses:
+        "200":
+          description: Risk limits updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/holding-period:
+    put:
+      operationId: setHoldingPeriod
+      tags: [Configuration]
+      summary: Set maximum position holding period
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [max_days]
+              properties:
+                max_days:
+                  type: integer
+                  minimum: 1
+                  description: Maximum calendar days a position may be held (SRS EXT-002).
+      responses:
+        "200":
+          description: Holding period updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/execution-mode:
+    put:
+      operationId: setExecutionMode
+      tags: [Configuration]
+      summary: Switch between simulation and live mode
+      description: No modification to classification, decision, or risk logic (SRS POS-003).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  $ref: "#/components/schemas/ExecutionMode"
+      responses:
+        "200":
+          description: Mode updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/approval-threshold:
+    put:
+      operationId: setApprovalThreshold
+      tags: [Configuration]
+      summary: Set urgency tier above which human approval is required
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [urgency_tier]
+              properties:
+                urgency_tier:
+                  $ref: "#/components/schemas/UrgencyTier"
+                  description: Decisions at or above this tier require approval (SRS DEC-004).
+      responses:
+        "200":
+          description: Threshold updated.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ────────────────────────────────────────────────────────────────────
+  # REPLAY
+  # ────────────────────────────────────────────────────────────────────
+  /replay:
+    post:
+      operationId: replayEvent
+      tags: [Replay]
+      summary: Run point-in-time event replay
+      description: |
+        Replays a historical event using only signals with timestamps in the
+        specified range. Signal data must already be loaded via POST /admin/signals.
+        Produces the decisions the system would have made (SRS ANA-001).
+
+        Requires ADMIN privileges.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayRequest"
+      responses:
+        "200":
+          description: Replay completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayResponse"
+        "400":
+          description: Invalid request (e.g., no signal data in range).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+# ══════════════════════════════════════════════════════════════════════
+# COMPONENTS
+# ══════════════════════════════════════════════════════════════════════
+components:
+
+  # ── Security ──────────────────────────────────────────────────────
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Two privilege levels (SRS SEC-001):
+        - READ: all GET endpoints.
+        - ADMIN: all endpoints including POST /admin/signals, PUT /config/*, POST /replay.
+
+  # ── Reusable parameters ───────────────────────────────────────────
+  parameters:
+    AsOf:
+      name: as_of
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Point-in-time filter. Only data with timestamp <= as_of.
+    From:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Start of time range (inclusive).
+    To:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: End of time range (inclusive).
+
+  # ── Reusable responses ────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials (SRS SEC-001).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient privileges. ADMIN required (SRS SEC-001).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Schemas ───────────────────────────────────────────────────────
+  schemas:
+
+    # ── Enums ─────────────────────────────────────────────────────
+    SourceCategory:
+      type: string
+      enum: [MARKET_DATA, MACROECONOMIC, GEOPOLITICAL, CROSS_ASSET_FLOW]
+      description: |
+        Four independent signal source categories (SRS SIG-001).
+        - MARKET_DATA: options pricing, IV surfaces, derivatives data.
+        - MACROECONOMIC: rates, yields, economic indicators.
+        - GEOPOLITICAL: intelligence feeds, structured and unstructured.
+        - CROSS_ASSET_FLOW: correlations, fund flows, liquidity indicators.
+
+    PayloadType:
+      type: string
+      enum: [STRUCTURED, UNSTRUCTURED]
+
+    ValidationStatus:
+      type: string
+      enum: [ACCEPTED, REJECTED]
+
+    EventTaxonomy:
+      type: string
+      enum: [LIQUIDITY, GEOPOLITICAL, STRUCTURAL_BREAK, MACRO_SHOCK]
+
+    ClassificationMethod:
+      type: string
+      enum: [AI_MODEL, RULE_BASED]
+
+    ScoreType:
+      type: string
+      enum: [ANOMALY_DETECTION, EVENT_ASSESSMENT]
+      description: |
+        Discriminator for the score field in SignalAssessment.
+        - ANOMALY_DETECTION: statistical deviation from rolling baseline (z-score, surprise magnitude).
+          Produced by MARKET_DATA, MACROECONOMIC, CROSS_ASSET_FLOW strategies.
+        - EVENT_ASSESSMENT: LLM-judged event impact.
+          Produced by GEOPOLITICAL structured and unstructured strategies.
+
+    DecisionOutcome:
+      type: string
+      enum: [DEPLOY, IDLE]
+
+    UrgencyTier:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    PositionStatus:
+      type: string
+      enum: [OPEN, CLOSED, REJECTED]
+
+    StrategyType:
+      type: string
+      enum: [LONG_STRADDLE, LONG_STRANGLE, PUT_SPREAD, CALL_SPREAD, CUSTOM]
+      description: Extensible. At least three distinct values required (SRS POS-004).
+
+    ExitTriggerType:
+      type: string
+      enum: [PROFIT_TARGET, STOP_LOSS, TIME_EXPIRY]
+      description: Extensible per SRS EXT-003.
+
+    ExecutionMode:
+      type: string
+      enum: [SIMULATION, LIVE]
+
+    AuditEventType:
+      type: string
+      enum:
+        - DEPLOY_DECISION
+        - IDLE_DECISION
+        - APPROVAL_REQUESTED
+        - APPROVAL_GRANTED
+        - APPROVAL_DENIED
+        - POSITION_OPENED
+        - POSITION_CLOSED
+
+    EscalationLevel:
+      type: string
+      enum: [THREAT, ACTION, ESCALATION, DE_ESCALATION]
+
+    MarketDataMetricType:
+      type: string
+      enum: [IMPLIED_VOLATILITY, REALISED_VOLATILITY, SKEW, TERM_STRUCTURE, PRICE]
+
+    MacroIndicatorType:
+      type: string
+      enum: [INTEREST_RATE, YIELD_CURVE, EMPLOYMENT, INFLATION, GDP, CENTRAL_BANK_STATEMENT]
+
+    FlowType:
+      type: string
+      enum: [CORRELATION_BREAKDOWN, FUND_FLOW, LIQUIDITY_INDEX, VOLATILITY_SPREAD]
+
+    # ── Source category payloads ──────────────────────────────────
+    MarketDataPayload:
+      type: object
+      description: Structured payload for MARKET_DATA signals.
+      required: [asset_class, instrument, metric_type, value, unit, observed_at]
+      properties:
+        asset_class:
+          type: string
+          description: "E.g., 'equity_index', 'fx', 'commodity'."
+        instrument:
+          type: string
+          description: "Specific identifier (e.g., 'SPX', 'VIX', 'EURUSD')."
+        metric_type:
+          $ref: "#/components/schemas/MarketDataMetricType"
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+          description: "'percent', 'points', 'basis_points'."
+        tenor:
+          type: string
+          description: "Maturity (e.g., '30d', '90d'). Required for TERM_STRUCTURE."
+        observed_at:
+          type: string
+          format: date-time
+
+    MacroeconomicPayload:
+      type: object
+      description: Structured payload for MACROECONOMIC signals.
+      required: [indicator_type, region, release_date]
+      properties:
+        indicator_type:
+          $ref: "#/components/schemas/MacroIndicatorType"
+        region:
+          type: string
+          description: "'US', 'EU', 'JP', 'GLOBAL'."
+        value:
+          type: number
+          format: double
+          nullable: true
+          description: "Null for CENTRAL_BANK_STATEMENT (content in unstructured_payload)."
+        prior_value:
+          type: number
+          format: double
+          nullable: true
+          description: Previous reading.
+        release_date:
+          type: string
+          format: date-time
+
+    GeopoliticalPayload:
+      type: object
+      description: |
+        Structured payload for GEOPOLITICAL signals.
+        For unstructured text, set payload_type=UNSTRUCTURED and use unstructured_payload instead.
+      required: [event_region, event_type, severity_estimate, actors]
+      properties:
+        event_region:
+          type: string
+          description: "'Middle East', 'East Asia', 'Europe'."
+        event_type:
+          type: string
+          description: "'military_strike', 'sanctions', 'election'."
+        severity_estimate:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: Source-provided. System computes its own per CLS-001.
+        actors:
+          type: array
+          items:
+            type: string
+          description: State or non-state actors involved.
+        escalation_level:
+          $ref: "#/components/schemas/EscalationLevel"
+
+    CrossAssetFlowPayload:
+      type: object
+      description: Structured payload for CROSS_ASSET_FLOW signals.
+      required: [flow_type, value, baseline_value, lookback_period]
+      properties:
+        flow_type:
+          $ref: "#/components/schemas/FlowType"
+        asset_pair:
+          type: string
+          description: "For correlations (e.g., 'SPX/TLT')."
+        value:
+          type: number
+          format: double
+        lookback_period:
+          type: string
+          description: "'90d', '1y'."
+
+    UnstructuredPayload:
+      type: object
+      description: Free-text payload for AI classification (SRS CLS-003). Primarily GEOPOLITICAL source.
+      required: [text, language]
+      properties:
+        text:
+          type: string
+          description: Raw text content.
+        language:
+          type: string
+          description: "ISO 639-1 code (e.g., 'en')."
+        source_url:
+          type: string
+          description: Optional. URL of the original source.
+
+    # ── Core entities ─────────────────────────────────────────────
+    SignalInput:
+      type: object
+      description: A single signal submitted for ingestion.
+      required: [source_category, source_identifier, timestamp, payload_type]
+      properties:
+        source_category:
+          $ref: "#/components/schemas/SourceCategory"
+        source_identifier:
+          type: string
+          description: "Specific source within category (e.g., 'cboe_vix')."
+        timestamp:
+          type: string
+          format: date-time
+          description: When the signal was observed at source. Used for point-in-time queries.
+        payload_type:
+          $ref: "#/components/schemas/PayloadType"
+        structured_payload:
+          description: |
+            Present when payload_type = STRUCTURED. Schema determined by source_category:
+            - MARKET_DATA → MarketDataPayload
+            - MACROECONOMIC → MacroeconomicPayload
+            - GEOPOLITICAL → GeopoliticalPayload
+            - CROSS_ASSET_FLOW → CrossAssetFlowPayload
+          oneOf:
+            - $ref: "#/components/schemas/MarketDataPayload"
+            - $ref: "#/components/schemas/MacroeconomicPayload"
+            - $ref: "#/components/schemas/GeopoliticalPayload"
+            - $ref: "#/components/schemas/CrossAssetFlowPayload"
+        unstructured_payload:
+          $ref: "#/components/schemas/UnstructuredPayload"
+
+    SignalResult:
+      type: object
+      description: Per-signal result from ingestion.
+      required: [signal_id, validation_status]
+      properties:
+        signal_id:
+          type: string
+          format: uuid
+        validation_status:
+          $ref: "#/components/schemas/ValidationStatus"
+        validation_errors:
+          type: array
+          items:
+            type: string
+          description: Present when REJECTED.
+
+    SignalAssessment:
+      type: object
+      description: Assessment of a single signal (SRS CLS-001).
+      required: [assessment_id, signal_id, score, score_type, certainty, classification_method, assessed_at]
+      properties:
+        assessment_id:
+          type: string
+          format: uuid
+        signal_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Classification score. Semantics depend on score_type:
+            - ANOMALY_DETECTION: statistical deviation from rolling baseline, mapped via tanh to [0,1].
+            - EVENT_ASSESSMENT: LLM-judged event impact on [0,1].
+        score_type:
+          $ref: "#/components/schemas/ScoreType"
+        certainty:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Combined certainty score composed of two independent dimensions:
+            source reliability (accuracy and trustworthiness of the source)
+            and temporal relevance (whether the market has already priced this
+            signal). Both dimensions are quantified independently and combined
+            (SRS CLS-001).
+        source_reliability:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Source reliability dimension of certainty — accuracy and
+            trustworthiness of the data source (SRS CLS-001). Optional;
+            provided when dimensions are computed independently.
+        temporal_relevance:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Temporal relevance dimension of certainty — whether the market
+            has already priced this signal (SRS CLS-001). 1.0 = market has
+            not yet absorbed the information. Decays as the signal ages or
+            as market prices adjust.
+        is_fallback:
+          type: boolean
+          description: |
+            True when this assessment is a last-known-good fallback due to
+            classification failure or timeout (SRS CLS-004). When true,
+            staleness_seconds indicates time since last valid classification.
+        staleness_seconds:
+          type: number
+          format: double
+          description: |
+            Seconds elapsed since the last valid (non-fallback) classification
+            for this signal's source category. Present only when is_fallback
+            is true (SRS CLS-004).
+        event_taxonomy:
+          $ref: "#/components/schemas/EventTaxonomy"
+        classification_method:
+          $ref: "#/components/schemas/ClassificationMethod"
+        assessed_at:
+          type: string
+          format: date-time
+
+    ComponentScore:
+      type: object
+      required: [source_category, weighted_contribution, assessment_count]
+      properties:
+        source_category:
+          $ref: "#/components/schemas/SourceCategory"
+        weighted_contribution:
+          type: number
+          format: double
+          description: This category's weighted contribution to the composite.
+        assessment_count:
+          type: integer
+          description: Number of assessments from this category.
+
+    CompositeScore:
+      type: object
+      description: |
+        Aggregated exploitability score (SRS CLS-002).
+
+        Formula: CompositeScore = Σ(w_c × max_confirmed(severity_c × certainty_c)) / Σ(w_c × d_c)
+        where c iterates over source categories with at least one assessment,
+        w_c is the category weight from the active weighting scheme,
+        max_confirmed selects the highest (severity × certainty) value in
+        category c that has at least one corroborating signal within the same
+        category, and d_c is the source-availability discount factor: 1.0 when
+        category c is actively reporting, a configurable penalty (default 0.7)
+        when category c is expected but unavailable. Categories with zero
+        assessments are excluded from both numerator and denominator.
+      required: [composite_id, score, weighting_scheme_id, contributing_sources, absent_sources, component_scores, computed_at, as_of]
+      properties:
+        composite_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+        weighting_scheme_id:
+          type: string
+        contributing_sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceCategory"
+        absent_sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceCategory"
+        component_scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComponentScore"
+        computed_at:
+          type: string
+          format: date-time
+        as_of:
+          type: string
+          format: date-time
+
+    IvDislocation:
+      type: object
+      description: |
+        IV dislocation entity (SRS CLS-006).
+
+        Formulas:
+        - SignalImpliedIV = MarketObservedIV × (1 + CompositeScore × SENSITIVITY_FACTOR)
+        - Dislocation = SignalImpliedIV − MarketObservedIV
+        - threshold_breached = dislocation_value >= dislocation_threshold
+
+        SENSITIVITY_FACTOR is regime-aware: higher in low-volatility environments
+        (more room for repricing), lower in high-volatility environments
+        (diminishing marginal signal impact). The mapping from current volatility
+        level to SENSITIVITY_FACTOR is configurable. MarketObservedIV is the most
+        recent implied volatility value from the MARKET_DATA source category for
+        the configured reference instrument (default: VIX).
+      required: [dislocation_id, signal_implied_iv, market_observed_iv, dislocation_value, dislocation_threshold, threshold_breached, computed_at]
+      properties:
+        dislocation_id:
+          type: string
+          format: uuid
+        signal_implied_iv:
+          type: number
+          format: double
+          description: |
+            Synthesized fair-value forecast of market volatility, computed as
+            MarketObservedIV × (1 + CompositeScore × SENSITIVITY_FACTOR).
+        market_observed_iv:
+          type: number
+          format: double
+          description: |
+            Most recent implied volatility from MARKET_DATA source for the
+            configured reference instrument.
+        dislocation_value:
+          type: number
+          format: double
+          description: SignalImpliedIV − MarketObservedIV. Positive = market underpricing risk.
+        dislocation_threshold:
+          type: number
+          format: double
+        threshold_breached:
+          type: boolean
+        reference_instrument:
+          type: string
+          description: |
+            Instrument used for MarketObservedIV (SRS CLS-006). Default: VIX.
+            Configurable per deployment context (e.g., OVX for oil, currency vol
+            indices for FX events).
+          example: "VIX"
+        sensitivity_factor:
+          type: number
+          format: double
+          description: |
+            The regime-adjusted SENSITIVITY_FACTOR used for this computation.
+            Included for audit and replay transparency.
+        computed_at:
+          type: string
+          format: date-time
+
+    ConditionEvaluation:
+      type: object
+      required: [condition_name, required_value, actual_value, passed]
+      properties:
+        condition_name:
+          type: string
+        required_value:
+          type: number
+          format: double
+        actual_value:
+          type: number
+          format: double
+        passed:
+          type: boolean
+
+    DecisionRecord:
+      type: object
+      description: Deploy or idle decision (SRS DEC-001, DEC-003).
+      required: [decision_id, outcome, composite_score, dislocation_value, conditions_evaluated, top_contributing_signals, dissenting_signals, decided_at, correlation_id]
+      properties:
+        decision_id:
+          type: string
+          format: uuid
+        outcome:
+          $ref: "#/components/schemas/DecisionOutcome"
+        composite_score:
+          type: number
+          format: double
+        dislocation_value:
+          type: number
+          format: double
+        conditions_evaluated:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConditionEvaluation"
+        top_contributing_signals:
+          type: array
+          items:
+            type: string
+            format: uuid
+        dissenting_signals:
+          type: array
+          items:
+            type: string
+            format: uuid
+        urgency_tier:
+          $ref: "#/components/schemas/UrgencyTier"
+        requires_approval:
+          type: boolean
+        decided_at:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+          format: uuid
+
+    PositionLeg:
+      type: object
+      required: [instrument, direction, quantity, strike, expiry, premium]
+      properties:
+        instrument:
+          type: string
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        quantity:
+          type: integer
+        strike:
+          type: number
+          format: double
+        expiry:
+          type: string
+          format: date
+        premium:
+          type: number
+          format: double
+
+    PositionRecord:
+      type: object
+      description: Constructed position (SRS POS-001, POS-002, POS-003).
+      required: [position_id, decision_id, strategy_type, legs, allocated_capital, max_possible_loss, mode, status, opened_at, holding_period_limit_days]
+      properties:
+        position_id:
+          type: string
+          format: uuid
+        decision_id:
+          type: string
+          format: uuid
+        strategy_type:
+          $ref: "#/components/schemas/StrategyType"
+        legs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionLeg"
+        allocated_capital:
+          type: number
+          format: double
+        max_possible_loss:
+          type: number
+          format: double
+          description: Must <= allocated_capital (SRS POS-001 convexity constraint).
+        mode:
+          $ref: "#/components/schemas/ExecutionMode"
+        status:
+          $ref: "#/components/schemas/PositionStatus"
+        opened_at:
+          type: string
+          format: date-time
+        holding_period_limit_days:
+          type: integer
+
+    ExitRecord:
+      type: object
+      description: Position exit (SRS EXT-001).
+      required: [exit_id, position_id, trigger_type, pnl, is_false_positive, exited_at]
+      properties:
+        exit_id:
+          type: string
+          format: uuid
+        position_id:
+          type: string
+          format: uuid
+        trigger_type:
+          $ref: "#/components/schemas/ExitTriggerType"
+        pnl:
+          type: number
+          format: double
+        is_false_positive:
+          type: boolean
+          description: "True if pnl < 0."
+        exited_at:
+          type: string
+          format: date-time
+
+    AuditEntry:
+      type: object
+      description: Append-only audit record (SRS AUD-001, AUD-002).
+      required: [audit_id, event_type, entity_id, input_snapshot, output_snapshot, recorded_at, sequence_number]
+      properties:
+        audit_id:
+          type: string
+          format: uuid
+        event_type:
+          $ref: "#/components/schemas/AuditEventType"
+        entity_id:
+          type: string
+          format: uuid
+        input_snapshot:
+          type: object
+          description: Input values at time of action. Structure varies by event_type.
+        output_snapshot:
+          type: object
+          description: Output produced. Structure varies by event_type.
+        recorded_at:
+          type: string
+          format: date-time
+        sequence_number:
+          type: integer
+          description: Monotonically increasing. Enables tamper detection.
+
+    RiskStatus:
+      type: object
+      description: Current portfolio-level risk state (SRS RSK-001, RSK-002, RSK-003).
+      required: [drawdown_current, drawdown_limit, cooldown_active, false_positive_budget_utilisation, cash_reserve]
+      properties:
+        drawdown_current:
+          type: number
+          format: double
+          description: Current rolling peak-to-trough drawdown.
+        drawdown_limit:
+          type: number
+          format: double
+          description: Configured maximum drawdown before cooldown.
+        cooldown_active:
+          type: boolean
+          description: True if drawdown exceeds limit. No deployments while active.
+        false_positive_budget_utilisation:
+          type: number
+          format: double
+          description: Current FP cost as fraction of FP budget [0.0, 1.0].
+        cash_reserve:
+          type: number
+          format: double
+          description: Current cash reserve balance.
+
+    LogEntry:
+      type: object
+      description: Structured log entry (SRS OBS-001).
+      required: [correlation_id, stage, timestamp, message]
+      properties:
+        correlation_id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          description: "Processing stage: 'ingestion', 'classification', 'decision', etc."
+        timestamp:
+          type: string
+          format: date-time
+        message:
+          type: string
+        details:
+          type: object
+          description: Stage-specific structured data.
+
+    WeightingScheme:
+      type: object
+      description: |
+        Configuration for composite score aggregation (SRS CLS-002).
+        category_weights maps each source category to its weight in the formula.
+      required: [scheme_id, category_weights, aggregation]
+      properties:
+        scheme_id:
+          type: string
+          description: "Unique name (e.g., 'equal_weight')."
+        category_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+          description: "Map of SourceCategory → weight. E.g., { \"MARKET_DATA\": 0.3 }."
+          example:
+            MARKET_DATA: 0.3
+            MACROECONOMIC: 0.25
+            GEOPOLITICAL: 0.25
+            CROSS_ASSET_FLOW: 0.2
+        aggregation:
+          type: string
+          enum: [WEIGHTED_MEAN, MAX_CONFIRMED_WEIGHTED]
+          description: |
+            Aggregation function. WEIGHTED_MEAN uses per-category average
+            (v2.2.1 legacy). MAX_CONFIRMED_WEIGHTED uses per-category maximum
+            of corroborated (severity × certainty) values with source-availability
+            discounting (SRS CLS-002 v2.3.1).
+        source_dropout_penalty:
+          type: number
+          format: double
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Discount factor (d_c) applied in the CompositeScore denominator
+            when a source category is expected but not currently reporting.
+            1.0 = no penalty; default 0.7 (SRS CLS-002).
+
+    # ── Request/Response wrappers ─────────────────────────────────
+    IngestSignalsRequest:
+      type: object
+      required: [signals]
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalInput"
+          minItems: 1
+
+    IngestSignalsResponse:
+      type: object
+      required: [accepted_count, rejected_count, signals]
+      properties:
+        accepted_count:
+          type: integer
+        rejected_count:
+          type: integer
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalResult"
+
+    ReplayRequest:
+      type: object
+      required: [event_label, from, to]
+      properties:
+        event_label:
+          type: string
+          description: "Human-readable label (e.g., 'Iran Feb 2026')."
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        config_overrides:
+          type: object
+          description: Optional. Any configuration parameters to override for this replay.
+
+    ReplayResponse:
+      type: object
+      required: [replay_id, decisions, positions, exits]
+      properties:
+        replay_id:
+          type: string
+          format: uuid
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DecisionRecord"
+        positions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionRecord"
+        exits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExitRecord"
+
+    DeployConditionsConfig:
+      type: object
+      required: [conditions]
+      properties:
+        conditions:
+          type: array
+          items:
+            type: object
+            required: [name, operator, threshold]
+            properties:
+              name:
+                type: string
+                description: "Condition name (e.g., 'composite_score', 'dislocation', 'risk_budget')."
+              operator:
+                type: string
+                enum: [">=", "<=", "==", ">", "<"]
+              threshold:
+                type: number
+                format: double
+
+    RiskLimitsConfig:
+      type: object
+      required: [max_drawdown, fp_budget, fp_warning_level, cash_reserve_minimum, max_per_trade, max_portfolio_allocation]
+      properties:
+        max_drawdown:
+          type: number
+          format: double
+          description: Maximum drawdown before cooldown (SRS RSK-001).
+        fp_budget:
+          type: number
+          format: double
+          description: Rolling false positive budget in capital units.
+        fp_warning_level:
+          type: number
+          format: double
+          description: |
+            FP utilisation fraction [0.0, 1.0] at which deploy threshold
+            adjustment activates. Direction and magnitude of adjustment are
+            controlled by fp_threshold_adjustment (SRS RSK-002).
+        fp_threshold_adjustment:
+          type: object
+          description: |
+            Regime-aware FP budget threshold adjustment (SRS RSK-002).
+            Direction is configurable: increase during noise regimes (conserve
+            budget), decrease during confirmed regime transitions (avoid missing
+            events).
+          properties:
+            noise_regime_direction:
+              type: string
+              enum: [INCREASE, DECREASE]
+              description: Threshold adjustment direction during noise/normal regimes. Default INCREASE.
+            transition_regime_direction:
+              type: string
+              enum: [INCREASE, DECREASE]
+              description: Threshold adjustment direction during confirmed regime transitions. Default DECREASE.
+            adjustment_magnitude:
+              type: number
+              format: double
+              minimum: 0.0
+              maximum: 1.0
+              description: |
+                Fraction by which threshold is adjusted. E.g., 0.2 means
+                threshold moves by ±20% of its base value.
+        cash_reserve_minimum:
+          type: number
+          format: double
+          description: Minimum cash reserve (SRS RSK-003).
+        max_per_trade:
+          type: number
+          format: double
+          description: Maximum capital per individual position (SRS POS-002).
+        max_portfolio_allocation:
+          type: number
+          format: double
+          description: Maximum total allocated capital across all open positions (SRS POS-002).
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable description.
+        details:
+          type: array
+          items:
+            type: string
+          description: Additional detail (e.g., per-field validation errors).

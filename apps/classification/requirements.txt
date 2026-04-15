@@ -1,0 +1,23 @@
+# Core — needed for all steps
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+numpy==2.2.1
+httpx==0.28.1
+fredapi==0.5.2
+
+# LLM — needed from step 6 (GEOPOLITICAL strategies)
+anthropic==0.43.0
+
+# RAG — needed for step 7 (GEOPOLITICAL unstructured)
+# Requires C++ build tools on Windows: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+# langchain==0.3.14
+# langchain-community==0.3.14
+# langchain-anthropic==0.3.3
+# chromadb==0.6.2
+
+# Tests
+pytest==8.3.4
+pytest-asyncio==0.25.2

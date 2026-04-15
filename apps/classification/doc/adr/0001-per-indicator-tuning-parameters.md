@@ -1,0 +1,138 @@
+# ADR-0001: Tuning parameters live per-indicator, sourced from the request
+
+- **Status:** Accepted (harness installed) — implementation deferred to ADR-0002 (Phase B)
+- **Date:** 2026-04-15
+- **Deciders:** Radu Pop
+- **Supersedes:** —
+- **Superseded by:** —
+
+## Context
+
+During Phase 4, `_EXPECTED_FREQUENCY_SECONDS` and `_TANH_SCALE` were declared at
+module level in `app/strategies/market_data.py` and
+`app/strategies/macroeconomic.py`. Both are fundamentally **per-indicator**
+properties (VIX trades intraday; CPI releases monthly; INITIAL_CLAIMS weekly),
+not per-strategy properties. Encoding them per-strategy is a wrong-level
+abstraction.
+
+The defect was structurally invisible to the test suite at discovery time:
+
+- No service-local API contract existed — only prose in `CLAUDE.md`. Nothing
+  for tests to agree against independent of the implementation.
+- Strategy tests asserted exact `computed_metrics` (`z_score`, `baseline_mean`)
+  and so were coupled to the implementation; they could not catch wrong-level
+  modeling.
+- No structural fitness function enforced where tuning parameters may live.
+- **Homogeneous inputs.** Each strategy had exactly one indicator under test
+  (`VIX`, `CPI_YOY`). Per-strategy and per-indicator constants produce
+  identical outputs when every strategy has only one indicator.
+- **Self-validating loop.** The agent wrote both the implementation and the
+  tests in one pass, encoding the same wrong assumption in both.
+
+Failure classification: **structural** (wrong-level modeling). Contract and
+behavioral tests could not catch it — the input set did not vary along the
+axis the bug lives on.
+
+## Decision
+
+1. **Tuning parameters are per-indicator, not per-strategy.** The classifier
+   does not own the catalogue of indicators or their cadences.
+2. **Parameters travel in the request payload.** The inbound
+   `MacroeconomicPayload` (and analogous payloads) carries an
+   `indicator_spec` block — `{ id, expected_frequency_seconds, surprise_scale }`
+   — set by the .NET ingestion job that owns indicator identity and cadence.
+3. **Unknown indicators are first-class at runtime.** The classifier spins up
+   a fresh rolling window on first observation of a new `indicator_id` and
+   reflects window-emptiness in `temporal_relevance` / `source_reliability`.
+   No hardcoded `dict[str, IndicatorParams]` in strategy modules.
+4. **Shared math is extracted.** `_compute_temporal_relevance` moves to
+   `app/math/temporal.py` so both strategies consume one implementation.
+5. **The OpenAPI contract** (`doc/openapi.yaml`) declares `indicator_spec` as
+   a required sub-schema on the relevant payload variants.
+
+## Harness installed in Phase A (this ADR)
+
+The fix itself is deferred to Phase B (ADR-0002). Phase A installs the
+controls that would have caught this class of bug and that will catch the
+fix's regressions:
+
+- **Contract.** `apps/classification/doc/openapi.yaml` (OpenAPI 3.1).
+- **Acceptance suite** under `tests/acceptance/`:
+  - `test_contract_shapes.py` — responses validate against `openapi.yaml`.
+  - `test_anchor_events.py` — parameterized over trader-curated JSON anchors
+    in `tests/acceptance/fixtures/`. Includes a non-monthly MACROECONOMIC
+    indicator anchor (`INITIAL_CLAIMS`) so the per-indicator-frequency axis is
+    exercised. Skipped today pending `/trader` data pull.
+  - `test_health_acceptance.py` — readiness and staleness block.
+  - **Source-provenance rule.** Every fixture value is traceable to a
+    verifiable public provider (FRED / BLS / Twelve Data / Finnhub / Reuters /
+    Bloomberg consensus archive). No synthetic seed windows. `/trader` is
+    accountable; `ANCHORS.md` is the checkpoint.
+- **Fitness function suite** under `tests/architecture/`:
+  - `test_layering.py` — `import-linter` contracts (Clean Architecture
+    layering, no strategy-to-strategy imports, `app.models` purity).
+  - `test_code_hygiene.py` — one principle-level assertion: the
+    project-configured ruff rule set reports zero violations. Rule families
+    (Fowler *Refactoring* magic-number `PLR2004`, McCabe complexity `C90`,
+    flake8-simplify DRY, PEP 8, bugbear) live in `pyproject.toml`, not in
+    test code. The accepted-risk waiver for the two strategy files carrying
+    `_TANH_SCALE` / `_EXPECTED_FREQUENCY_SECONDS` is a `per-file-ignores`
+    entry in `pyproject.toml` tagged `# TODO(ADR-0001)`. Phase B removes the
+    ignore entry and the constants in the same commit.
+  - `test_complexity.py` — `xenon` cyclomatic-complexity ceiling (McCabe).
+  - `test_typing.py` — `mypy --strict` on contract boundaries.
+  - `test_dead_code.py` — `vulture` on `app/`.
+
+## Consequences
+
+### Positive
+
+- Adding a new indicator is an upstream schema+config change, not a classifier
+  code change. The classifier scales with the .NET-side indicator registry
+  without redeploys.
+- The fitness suite catches the *class* of bug (wrong-level tuning constant in
+  any strategy), not just the specific instance.
+- The contract + acceptance layer survives implementation rewrites
+  (Phase C: `tanh` → ECDF) without rewriting tests.
+
+### Negative
+
+- The .NET ingestion job now owns the indicator-spec catalogue. The Python
+  service trusts caller-supplied params; bad params produce bad scores. This
+  is the correct ownership boundary but it shifts validation responsibility
+  upstream.
+- An unknown indicator at runtime carries low `temporal_relevance` until its
+  window fills. Callers must understand that early scores on novel indicators
+  are intentionally uncertain.
+
+### Trade-off — what was rejected
+
+A YAML model card / signal-calibration spec with attestation hashes was
+considered and rejected as governance theater for a single-operator system.
+Routine parameter changes require only that the acceptance suite passes; the
+contract is the OpenAPI file, the domain scenarios are `ANCHORS.md`.
+
+## Status of the bug at time of writing
+
+**NOT FIXED.** Accepted-risk waivers in place:
+
+- `pyproject.toml` `[tool.ruff.lint.per-file-ignores]` — `PLR2004` exempted on
+  `app/strategies/market_data.py` and `app/strategies/macroeconomic.py`, tagged
+  `# TODO(ADR-0001)`.
+- `tests/acceptance/fixtures/macro_initial_claims_axis_exerciser.json` —
+  `xfail(strict=True)` marker configured; currently skipped pending `/trader`
+  data pull, flips to a live fail once sourced.
+
+Phase B (future ADR) removes the bug at its source — deletes the
+`per-file-ignores` entries and the module-level constants in the same commit,
+and the INITIAL_CLAIMS anchor flips from xfail to pass.
+
+## References
+
+- Plan: `C:\Users\Radu\.claude\plans\fluttering-sprouting-wreath.md`
+- Source lines at time of bug discovery:
+  - `apps/classification/app/strategies/market_data.py:20, 24, 27-36`
+  - `apps/classification/app/strategies/macroeconomic.py:19, 23, 26-33`
+- Framework: `apps/classification/HARNESS.md`
+- Contract: `apps/classification/doc/openapi.yaml`
+- ADR format: Michael Nygard, *Documenting Architecture Decisions* (2011)

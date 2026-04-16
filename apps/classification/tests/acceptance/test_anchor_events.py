@@ -88,3 +88,8 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
     if "temporal_relevance_min" in band:
         assert body["temporal_relevance"] is not None
         assert body["temporal_relevance"] >= band["temporal_relevance_min"]
+    if "temporal_relevance_max" in band:
+        assert body["temporal_relevance"] is not None
+        assert body["temporal_relevance"] <= band["temporal_relevance_max"], (
+            f"{anchor_name}: temporal_relevance {body['temporal_relevance']} exceeds max {band['temporal_relevance_max']}"
+        )

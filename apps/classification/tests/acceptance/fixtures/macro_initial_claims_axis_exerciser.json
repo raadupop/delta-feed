@@ -1,38 +1,50 @@
 {
-  "_comment": "AXIS EXERCISER — INITIAL_CLAIMS (weekly cadence). Exists to make the per-indicator-frequency bug manifest in black-box tests. See doc/adr/0001-per-indicator-tuning-parameters.md. Expected xfail(strict=True) until Phase B extracts per-indicator tuning from the request payload.",
-  "status": "PENDING DATA PULL — /trader must source seed window from FRED ICSA and pick a real release date with a documented surprise.",
+  "_comment": "AXIS EXERCISER — INITIAL_CLAIMS (weekly cadence). DOL release 2026-04-09: 219K actual vs 210K consensus (9K upside surprise). Seed window has 5 prior weekly surprises (Feb-Mar 2026). last_update is 21 days before signal — simulates 2 missed weekly releases — so the per-indicator-frequency bug manifests: correct 7-day expected_freq gives temporal_relevance ~0.14; buggy 30-day gives 1.0.",
+  "status": "SOURCED — PENDING /trader signoff",
   "source": {
-    "provider": "FRED",
-    "series_id": "ICSA",
-    "description": "Initial Claims, weekly, seasonally adjusted",
-    "url": "https://fred.stlouisfed.org/series/ICSA",
-    "retrieved_at": null,
-    "window_range": null,
-    "current_value_date": null,
-    "consensus_provider": "Bloomberg-consensus / Reuters-poll (archived)"
+    "actual_provider": "FRED",
+    "actual_series_id": "ICSA",
+    "actual_description": "Initial Claims, weekly, seasonally adjusted (thousands)",
+    "actual_url": "https://fred.stlouisfed.org/series/ICSA",
+    "consensus_provider": "investing.com economic calendar (aggregated bank/broker survey consensus)",
+    "consensus_url": "https://www.investing.com/economic-calendar/initial-jobless-claims-294",
+    "consensus_note": "Bloomberg-consensus / Reuters-poll primary archives are paywalled. investing.com consensus was cross-referenced against MQL5 (mql5.com/en/economic-calendar/united-states/initial-jobless-claims) — actuals agree across sources, forecasts diverge by 3-18K between aggregators (expected for different survey panels). investing.com forecasts produce realistic surprise magnitudes (1-17K); MQL5 showed implausible 40-50K misses on some weeks.",
+    "retrieved_at": "2026-04-16T00:00:00Z",
+    "window_range": "Release dates 2026-02-19 .. 2026-03-19 (5 weekly |actual-consensus| surprise magnitudes)",
+    "current_value_date": "2026-04-09 (DOL release for week ending 2026-04-04)"
   },
   "indicator": "INITIAL_CLAIMS",
-  "last_update": "1970-01-01T00:00:00+00:00",
-  "window": [],
+  "last_update": "2026-03-19T12:30:00+00:00",
+  "window": [17.0, 5.0, 2.0, 1.0, 10.0],
+  "window_provenance": [
+    {"release_date": "2026-02-19", "week_ending": "2026-02-14", "actual_K": 206, "consensus_K": 223, "surprise_K": 17, "source": "investing.com"},
+    {"release_date": "2026-02-26", "week_ending": "2026-02-21", "actual_K": 212, "consensus_K": 217, "surprise_K": 5, "source": "investing.com"},
+    {"release_date": "2026-03-05", "week_ending": "2026-02-28", "actual_K": 213, "consensus_K": 215, "surprise_K": 2, "source": "investing.com"},
+    {"release_date": "2026-03-12", "week_ending": "2026-03-07", "actual_K": 213, "consensus_K": 214, "surprise_K": 1, "source": "investing.com"},
+    {"release_date": "2026-03-19", "week_ending": "2026-03-14", "actual_K": 205, "consensus_K": 215, "surprise_K": 10, "source": "investing.com"}
+  ],
   "request": {
     "source_category": "MACROECONOMIC",
     "payload_type": "STRUCTURED",
     "structured_payload": {
       "indicator": "INITIAL_CLAIMS",
-      "actual": 0.0,
-      "expected": 0.0,
-      "release_timestamp": "1970-01-01T00:00:00Z"
+      "actual": 219.0,
+      "expected": 210.0,
+      "release_timestamp": "2026-04-09T12:30:00Z"
     }
   },
   "expected_band": {
-    "score_min": 0.0,
-    "score_max": 1.0,
+    "score_min": 0.30,
+    "score_max": 0.55,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "rationale_pending_trader": "Band and values placeholder until /trader sources a real ICSA release with consensus miss. The point of this anchor is the FREQUENCY axis: temporal_relevance for a weekly indicator must not be computed with the monthly (30-day) expected frequency that `macroeconomic.py` currently hardcodes."
+    "source_reliability_min": 0.55,
+    "temporal_relevance_min": 0.10,
+    "temporal_relevance_max": 0.50,
+    "rationale": "surprise_magnitude = 9.0 / std([17,5,2,1,10], ddof=1) = 9.0/6.60 = 1.36; severity = tanh(1.36/3.0) = 0.43. Band [0.30, 0.55] survives tanh_scale 2.5-3.5. source_reliability = 0.583 (5/30 window). FREQUENCY BUG: last_update is 21 days before signal. Correct 7-day expected_freq: temporal_relevance = exp(-2) = 0.14 (within [0.10, 0.50]). Buggy 30-day expected_freq: temporal_relevance = 1.0 (exceeds 0.50 max -> xfail)."
   },
   "xfail": {
-    "reason": "ADR-0001 — macroeconomic.py uses a per-strategy _EXPECTED_FREQUENCY_SECONDS of 30 days; a weekly indicator yields incorrect temporal_relevance staleness decay. Phase B removes the module-level constant by sourcing `expected_frequency_seconds` from the request payload per indicator. Additionally, this anchor is PENDING DATA PULL — the seed window and release values must be sourced from FRED ICSA + archived consensus before the xfail can become an xpass.",
+    "reason": "ADR-0001 — macroeconomic.py uses _EXPECTED_FREQUENCY_SECONDS = 2592000 (30 days). For this weekly indicator with a 21-day gap since last_update, temporal_relevance should be exp(-(21d-7d)/7d) = exp(-2) = 0.14. The buggy 30-day constant produces exp(-max(0, 21d-30d)/30d) = 1.0, which exceeds temporal_relevance_max of 0.50. Phase B sources expected_frequency_seconds from the request payload per indicator.",
     "strict": true
   }
 }

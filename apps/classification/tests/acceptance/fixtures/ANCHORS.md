@@ -35,7 +35,7 @@ data point cannot be sourced, the anchor is **dropped**, not approximated.
 | 2 | 2020-02-24 | MARKET_DATA | VIX | `market_data_vix_covid_first_spike_2020_02_24.json` | SOURCED, PENDING /trader | COVID first spike — VIX 17→25. Seed: FRED VIXCLS last 20 closes to 2020-02-21. |
 | 3 | 2022-07-13 | MACROECONOMIC | CPI_YOY | `macro_cpi_yoy_peak_inflation_2022_07_13.json` | SOURCED, PENDING /trader | CPI YoY 9.1% vs 8.6% consensus. Surprise history from BLS releases 2019–2022. |
 | 4 | 2021-12-10 | MACROECONOMIC | CPI_YOY | `macro_cpi_yoy_inflation_ramp_2021_12_10.json` | SOURCED, PENDING /trader | CPI YoY 6.9% vs 6.7%. Surprise history from BLS releases 2019–2021. |
-| 5 | TBD | MACROECONOMIC | INITIAL_CLAIMS (weekly) | `macro_initial_claims_axis_exerciser.json` | PENDING DATA PULL | **Per-indicator-frequency axis exerciser** (ADR-0001). Weekly cadence vs monthly CPI. Must xfail(strict=True) until Phase B extracts per-indicator tuning from request payload. |
+| 5 | 2026-04-09 | MACROECONOMIC | INITIAL_CLAIMS (weekly) | `macro_initial_claims_axis_exerciser.json` | SOURCED, PENDING /trader | **Per-indicator-frequency axis exerciser** (ADR-0001). 219K actual vs 210K consensus (investing.com). Seed: 5 weekly surprises Feb-Mar 2026. 21-day gap since last_update exercises the 7-day vs 30-day frequency bug via `temporal_relevance_max` assertion. xfail(strict=True) until Phase B. |
 
 ## Candidate Pool — Phase 1 Convexity Analysis
 

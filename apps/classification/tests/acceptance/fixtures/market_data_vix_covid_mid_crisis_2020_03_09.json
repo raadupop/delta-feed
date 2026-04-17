@@ -1,0 +1,37 @@
+{
+  "_comment": "COVID mid-crisis — VIX 41→54 on 2020-03-09. Window already contains the Feb 24 spike and subsequent elevated readings, demonstrating window absorption: despite a bigger absolute move than Feb 24, z-score is lower because the window has absorbed the crisis ramp.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-17T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2020-02-07 .. 2020-03-06 (last 20 trading-day closes before event)",
+    "current_value_date": "2020-03-09"
+  },
+  "symbol": "VIX",
+  "last_update": "2020-03-06T00:00:00+00:00",
+  "window": [
+    15.47, 15.04, 15.18, 13.74, 14.15, 13.68, 14.83, 14.38, 15.56, 17.08,
+    25.03, 27.85, 27.56, 39.16, 40.11, 33.42, 36.82, 31.99, 39.62, 41.94
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 54.46,
+      "timestamp": "2020-03-09T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.10,
+    "score_max": 0.17,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "Window absorption in action. VIX moved from 41.94 to 54.46 — a 12.5-point jump — but the 20-day window already includes the Feb 24-28 ramp (mean=24.63, std=10.83), so z=+2.75 and severity is only ~0.14. Compare to Volmageddon's 0.88 or even COVID Feb 24's 0.31 — the window has 'learned' the crisis. Band [0.10, 0.17] covers tanh_scale 18-22. A trader would still be sweating at VIX 54, but the z-score model is blind to regime — it only sees deviation from recent history."
+  }
+}

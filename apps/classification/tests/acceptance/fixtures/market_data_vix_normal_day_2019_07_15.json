@@ -1,0 +1,37 @@
+{
+  "_comment": "Quiet summer day — VIX at 12.68 against a calm declining window. Exercises the noise-zone axis: severity should be near zero, guarding against score inflation that would trigger false composite signals downstream.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-17T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2019-06-14 .. 2019-07-12 (last 20 trading-day closes before event)",
+    "current_value_date": "2019-07-15"
+  },
+  "symbol": "VIX",
+  "last_update": "2019-07-12T00:00:00+00:00",
+  "window": [
+    15.28, 15.35, 15.15, 14.33, 14.75, 15.40, 15.26, 16.28, 16.21, 15.82,
+    15.08, 14.06, 12.93, 12.57, 13.28, 13.96, 14.09, 13.03, 12.93, 12.39
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 12.68,
+      "timestamp": "2019-07-15T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.00,
+    "score_max": 0.10,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "Noise-zone guard. VIX 12.68 against window mean 14.41 (std=1.23) gives z=-1.41, severity ~0.07. Band [0.00, 0.10] is deliberately tight at the low end — if this scores above 0.10, something is inflating noise into signal. z=-1.41 is a mild decline (VIX drifting down in calm summer), not a tradeable event. Any downstream composite that fires on this is a false positive bleeding theta."
+  }
+}

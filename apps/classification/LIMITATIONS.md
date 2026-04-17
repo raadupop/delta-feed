@@ -38,6 +38,8 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 ## 3. Fixed `tanh` curve for severity mapping
 
+**Status:** PLANNED — remediation scoped in [ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md). Pivot to ECDF / percentile rank with per-class `N` (history length) + `D` (minimum-informative-dispersion floor). Implementation deferred to `/chief-architect` engagement.
+
 **Affects:** MARKET_DATA, MACROECONOMIC (and future CROSS_ASSET_FLOW) strategies
 
 **Risk:** `tanh(value / scale)` assumes a fixed S-curve shape for mapping raw scores to severity. The curve shape never changes — it doesn't adapt to shifting market regimes, and the scale constant bakes in a static judgment about what counts as "severe." Industry-grade systems (Bloomberg, Aladdin) either pass raw values through and let downstream systems interpret, or use continuously recalibrated models.
@@ -64,3 +66,20 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 - Validate exploitability via the .NET replay system (ANA-001), which replays historical signals through the full composite → dislocation → decision → position pipeline
 - Use real intraday IV data (CBOE, OptionMetrics) to measure the actual dislocation window for each event
 - Only events with confirmed positive P&L in replay should be considered exploitable
+
+---
+
+## 5. Self-validating-loop bug class at the per-signal severity layer
+
+**Status:** PLANNED — two-part remediation scoped in [ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md).
+
+**Affects:** All RULE_BASED strategies (MARKET_DATA, MACROECONOMIC, CROSS_ASSET_FLOW). Root cause of #1 (scale fitting) and #3 (fixed `tanh` curve) — those are symptoms of the same underlying gap.
+
+**Risk:** CLS-001 in the SRS is deliberately qualitative ("severity is quantified; certainty has two independent dimensions combined somehow") with no formula. An AI agent authoring both the strategy and its tests in one pass can encode the same wrong assumption in both — the acceptance suite validates the contract shape and anchor bands, but cannot validate that the formula itself is right, because there is no independent formula to compare against. The 4-fixture axis-coverage work (OVX Aramco, VIX COVID mid-crisis, VIX vol crush, VIX normal day) collapsed to regression guards: their bands reflect whatever the classifier currently outputs, not a paper-computed reference.
+
+**Current state:** Acceptance suite + architectural fitness layer cannot catch this class. Structurally invisible to the existing harness.
+
+**Production fix (two parts, together):**
+
+1. **Tighten CLS-001 with a normative formula.** ECDF / percentile rank with two per-class parameters (`N`, `D`) makes severity paper-computable per indicator without a magic scale constant. Shifts CLS-001 from Insight-7 category (b) qualitative to (a) quantitative for a principled statistical reason. See [ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md) and the [CLS-001 SRS annex stub](doc/adr/srs-annex-cls-001-severity-formula.md).
+2. **Add a backtest harness layer with a market-reality oracle.** Acceptance suite asserts the SRS contract (formula-based, deterministic). Backtest Layer A asserts that the classifier's output is consistent with what IV actually did post-event (binary direction + magnitude bucket). Different oracle, different bug class, no duplication. Documented in [HARNESS.md](HARNESS.md).

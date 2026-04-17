@@ -119,7 +119,7 @@ contract is the OpenAPI file, the domain scenarios are `ANCHORS.md`.
 - `pyproject.toml` `[tool.ruff.lint.per-file-ignores]` — `PLR2004` exempted on
   `app/strategies/market_data.py` and `app/strategies/macroeconomic.py`, tagged
   `# TODO(ADR-0001)`.
-- `tests/acceptance/fixtures/macro_initial_claims_axis_exerciser.json` —
+- `tests/acceptance/fixtures/macro_initial_claims_weekly_surprise_2026_04_09.json` —
   `xfail(strict=True)` marker configured; currently skipped pending `/trader`
   data pull, flips to a live fail once sourced.
 

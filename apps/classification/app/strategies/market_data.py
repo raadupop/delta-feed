@@ -39,7 +39,7 @@ def _compute_temporal_relevance(
 class MarketDataStrategy(ClassificationStrategy):
     async def classify(self, request: ClassifyRequest) -> ClassifyResponse:
         # ** unpacks a dictionary into keyword arguments for the MarketDataPayload constructor
-        payload = MarketDataPayload(**(request.structured_payload or {}))
+        payload = MarketDataPayload(**(request.structured_payload or {})) 
         symbol = payload.symbol
         current_value = payload.current_value
         signal_time = datetime.fromisoformat(payload.timestamp)
@@ -83,6 +83,7 @@ class MarketDataStrategy(ClassificationStrategy):
         # --- edge case: flat window (std == 0) ---
         if standard_deviation == 0.0:
             window.append(current_value, signal_time)
+            
             return ClassifyResponse(
                 score=0.0,
                 score_type=ScoreType.ANOMALY_DETECTION,

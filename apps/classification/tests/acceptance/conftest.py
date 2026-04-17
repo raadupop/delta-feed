@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 import yaml
@@ -32,13 +32,13 @@ def openapi_spec() -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c
 
 
 @pytest.fixture(autouse=True)
-def reset_state() -> None:
+def reset_state() -> Iterator[None]:
     """Clear windows between tests, keep bootstrap-ready flag."""
     state.market_data_history.clear()
     state.macro_surprise_histories.clear()

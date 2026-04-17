@@ -17,6 +17,7 @@ PayloadType = Literal["STRUCTURED", "UNSTRUCTURED"]
 # Structured payload schemas — one per source_category
 # ---------------------------------------------------------------------------
 
+# ToDo: find better name for MarketDataPayload. MarketDataPoint? MarketSignal? MarketObservation? The challenge is that "payload" is a bit too generic and doesn't convey the financial context, but we also want to avoid overly technical terms that might be confusing. Open to suggestions! 
 class MarketDataPayload(BaseModel):
     symbol: str                          # e.g. "VIX"
     current_value: float

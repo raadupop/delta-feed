@@ -1,0 +1,37 @@
+{
+  "_comment": "Post-COVID vol crush — VIX drops from elevated window (~53 mean) to 38.15. Exercises downward-move axis: severity uses abs(z_score), so a vol crush scores the same as a spike of equal magnitude. The system cannot distinguish 'good' vol drops from 'bad' spikes.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-17T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2020-03-19 .. 2020-04-16 (last 20 trading-day closes before event)",
+    "current_value_date": "2020-04-17"
+  },
+  "symbol": "VIX",
+  "last_update": "2020-04-16T00:00:00+00:00",
+  "window": [
+    72.00, 66.04, 61.59, 61.67, 63.95, 61.00, 65.54, 57.08, 53.54, 57.06,
+    50.91, 46.80, 45.24, 46.70, 43.35, 41.67, 41.17, 37.76, 40.84, 40.11
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 38.15,
+      "timestamp": "2020-04-17T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.04,
+    "score_max": 0.10,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "Vol crush from elevated regime. Window mean ~52.7 (peak COVID vol), signal 38.15 is a decline of 14.6 points. z=-1.38, severity ~0.07 via tanh(1.38/20). Band [0.04, 0.10] covers tanh_scale 18-22. Key axis: abs(z_score) means downward moves score identically to upward — a VIX crush from 53→38 and a VIX spike from 53→68 produce the same severity. A trader would view these very differently (crush = risk-off, spike = risk-on)."
+  }
+}

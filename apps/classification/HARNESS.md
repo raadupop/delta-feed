@@ -56,20 +56,45 @@ a separate pipeline."
 | --- | --- | --- |
 | `tests/acceptance/` | Black-box against the contract (`test_contract_shapes.py`, `test_anchor_events.py`, `test_health_acceptance.py`) + `fixtures/` with `ANCHORS.md` | New in Phase A. Authoritative layer. |
 | `tests/architecture/` | Fitness functions wrapping `import-linter`, `ruff`, `mypy`, `xenon`, `vulture` | New in Phase A. |
-| `tests/regression/test_market_data.py`, `test_macroeconomic_data.py` | Strategy-level (asserts exact `computed_metrics`) with fixtures under `tests/regression/fixtures/` | Kept as a regression suite for the current implementation. Will correctly fail when Phase C swaps `tanh` for ECDF. NOT promoted to acceptance. |
 | `tests/integration/test_bootstrap.py` | Live-API bootstrap | Separate category; skipped when `FRED_API_KEY` is absent. |
 
-## 4. Gaps After Phase A
+## 4. Test Model — Three Layers with Distinct Oracles
 
-- **Per-indicator axis coverage** — MACROECONOMIC anchors today cover only
-  `CPI_YOY`. Phase A invokes `/trader` to add at least one non-monthly
-  indicator anchor (e.g. `INITIAL_CLAIMS` weekly) so the homogeneity trap
-  that hid Lesson 1 cannot reappear silently.
-- **GEOPOLITICAL and CROSS_ASSET_FLOW anchors** — deferred until those
-  strategies are implemented (still scaffolds today).
-- **Property-based tests on `_compute_temporal_relevance`** — deferred to
-  Phase C after the function is extracted to `app/math/temporal.py`.
-  Hypothesis-style tests are cheap and well-justified at the math layer.
+The four-fixture axis-coverage work (OVX Aramco, VIX COVID mid-crisis, VIX
+vol crush, VIX normal day) surfaced a structural gap: the acceptance
+suite cannot catch a class of AI-generated bugs in which the strategy
+and its tests co-evolve from the same wrong assumption. The remediation
+is a **third harness layer** with a different oracle, scoped in
+[ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md).
+
+| Layer | Oracle | Granularity | Cadence | Bug classes caught |
+| --- | --- | --- | --- | --- |
+| **Acceptance** | SRS contract + CLS-001 ECDF formula (see [annex stub](doc/adr/srs-annex-cls-001-severity-formula.md)) | Per-request, deterministic | Per-commit | Formula misimplementation; contract violations; anchor-band regressions |
+| **Architecture (fitness)** | Structural invariants (layering, complexity, typing, hygiene, dead code) | Per-file / per-rule | Per-commit | Wrong-level abstraction; boundary violations; McCabe blow-ups; import drift |
+| **Backtest Layer A** | Market IV outcomes — binary direction + magnitude bucket (*"IV moved > 20% post-event → severity ≥ 0.7 must hold"*) | Per-event, historical | Nightly / pre-release | Self-validating-loop at the severity layer; calibration drift across regimes; ECDF-formula-plausible-but-wrong-in-reality |
+
+Layer A is Python-only and buildable today. A future Layer B
+(.NET-side system backtest against SRS §9's 10-event validation set)
+waits until the .NET iterations exist.
+
+### Why three layers, not two
+
+Acceptance uses the SRS contract as its oracle. If the SRS and the
+implementation co-evolve from the same wrong assumption, acceptance
+passes while the product is broken. Layer A's oracle is external —
+what IV actually did — so it catches that exact co-evolution failure
+mode. Different oracle, different bug class, no duplication.
+
+### Remaining gaps after this harness redesign
+
+- **ECDF implementation** — the CLS-001 annex is a stub; strategy code
+  still uses `tanh`. `/chief-architect` engagement scheduled.
+- **CROSS_ASSET_FLOW anchors** — deferred until the strategy is
+  implemented (build-step 5), which will land directly on ECDF.
+- **GEOPOLITICAL anchors** — deferred until those strategies exist;
+  EVENT_ASSESSMENT via LLM, not covered by ECDF.
+- **Property-based tests on `_compute_temporal_relevance`** — deferred
+  to Phase C after the function is extracted to `app/math/temporal.py`.
 - **Mutation testing (mutmut)** — Phase C sensor-of-sensors on
   `app/strategies/*.py` and `app/math/*.py`.
 

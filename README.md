@@ -136,9 +136,6 @@ contract-driven acceptance suite under `apps/classification/tests/`:
   Finnhub; no synthetic seed windows)
 - `tests/architecture/` — import-linter layering contracts, ruff hygiene,
   mypy strict typing, xenon complexity ceilings, vulture dead-code detection
-- `tests/regression/` — strategy-level tests asserting exact computed
-  metrics; kept to catch unintended behavior change, not promoted to
-  acceptance
 - `tests/integration/` — live-API bootstrap, skipped when API keys absent
 
 Architectural decisions are recorded as ADRs under
@@ -159,7 +156,6 @@ apps/
     tests/
       acceptance/          Black-box contract + anchor-event tests
       architecture/        Fitness functions
-      regression/          Strategy-level regression suite
       integration/         Live-API bootstrap
     HARNESS.md             Framework, inventory, gap map
     AGENTS.md              Service-local agent context
@@ -175,7 +171,7 @@ AGENTS.md                  Repository-level agent context
 
 ## Status
 
-- Classification service — acceptance, architecture, regression, and
+- Classification service — acceptance, architecture, and
   integration test layers installed. Harness under ADR-0001 covers
   `_TANH_SCALE` / `_EXPECTED_FREQUENCY_SECONDS` wrong-level abstraction;
   remediation scheduled for Phase B (per-indicator parameters sourced at

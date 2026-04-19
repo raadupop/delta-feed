@@ -3,7 +3,7 @@ info:
   title: Invex API
   description: |
     External interface contract for the Invex volatility-exploitation system.
-    Companion to Invex SRS v2.3.1 (ISO/IEC/IEEE 29148:2018).
+    Companion to Invex SRS v2.3.2 (ISO/IEC/IEEE 29148:2018).
 
     This specification defines the system's external boundary — the sole surface
     exercised by the API acceptance test suite (EVO-001). Every architecture
@@ -1363,7 +1363,7 @@ components:
             Aggregation function. WEIGHTED_MEAN uses per-category average
             (v2.2.1 legacy). MAX_CONFIRMED_WEIGHTED uses per-category maximum
             of corroborated (severity × certainty) values with source-availability
-            discounting (SRS CLS-002 v2.3.1).
+            discounting (SRS CLS-002 v2.3.2).
         source_dropout_penalty:
           type: number
           format: double

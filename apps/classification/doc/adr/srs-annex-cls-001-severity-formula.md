@@ -1,8 +1,14 @@
 # SRS Annex — CLS-001 severity formula (stub)
 
-- **Status:** Stub — normative content drafted here, SRS body incorporation deferred to the next SRS revision
-- **Date:** 2026-04-18
-- **Relates to:** [ADR-0002](0002-ecdf-severity-and-backtest-harness.md), CLS-001, CLS-004
+- **Status:** **Superseded (2026-04-19).** The normative text of this
+  annex is now inline in [SRS v2.3.2](../../../../doc/srs/INVEX-SRS-v2.3.2.md)
+  §3 Definitions (deviation, ECDF rank, indicator class, indicator
+  registry, N, D) and §5.2 CLS-001 / CLS-009. The indicator registry
+  is anchored in §3 Definitions, not as SIG-001.1. This file is
+  retained as review-audit text only — do not edit. Canonical source
+  is the SRS.
+- **Date:** 2026-04-18 (superseded 2026-04-19)
+- **Relates to:** [ADR-0002](0002-ecdf-severity-and-backtest-harness.md), CLS-001, CLS-009 (RULE_BASED degraded-confidence fallback), CLS-003 (GEOPOLITICAL LLM path, out of scope for ECDF), CLS-004 (AI-response validation — disjoint from this annex)
 
 This annex defines the normative formula for per-signal severity produced
 by the classification service's RULE_BASED strategies. It is the missing

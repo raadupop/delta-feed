@@ -69,7 +69,7 @@ is a **third harness layer** with a different oracle, scoped in
 
 | Layer | Oracle | Granularity | Cadence | Bug classes caught |
 | --- | --- | --- | --- | --- |
-| **Acceptance** | SRS contract + CLS-001 ECDF formula (see [annex stub](doc/adr/srs-annex-cls-001-severity-formula.md)) | Per-request, deterministic | Per-commit | Formula misimplementation; contract violations; anchor-band regressions |
+| **Acceptance** | SRS contract + CLS-001 ECDF formula (see [SRS v2.3.2 §5.2 CLS-001](../../doc/srs/INVEX-SRS-v2.3.2.md)) | Per-request, deterministic | Per-commit | Formula misimplementation; contract violations; anchor-band regressions |
 | **Architecture (fitness)** | Structural invariants (layering, complexity, typing, hygiene, dead code) | Per-file / per-rule | Per-commit | Wrong-level abstraction; boundary violations; McCabe blow-ups; import drift |
 | **Backtest Layer A** | Market IV outcomes — binary direction + magnitude bucket (*"IV moved > 20% post-event → severity ≥ 0.7 must hold"*) | Per-event, historical | Nightly / pre-release | Self-validating-loop at the severity layer; calibration drift across regimes; ECDF-formula-plausible-but-wrong-in-reality |
 

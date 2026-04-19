@@ -17,7 +17,7 @@ four fixtures collapsed to regression guards — their bands reflect whatever
 the classifier currently outputs, because no cross-tech formula exists to
 independently compute the "correct" severity.
 
-Root cause: [CLS-001 in the SRS](../../../../doc/INVEX-SRS-v2.3.1.pdf) is
+Root cause: [CLS-001 in the SRS](../../../../doc/srs/INVEX-SRS-v2.3.2.md) was (v2.3.1)
 deliberately qualitative ("severity is quantified; certainty has two
 independent dimensions combined somehow") with no formula. This is
 intentional per Insight 7 (spec precision treated as an experimental
@@ -115,43 +115,52 @@ Out of scope: GEOPOLITICAL (LLM-judged).
 
 ## SRS requirements impacted
 
-This ADR does not modify the SRS body (deferred to the next SRS
-revision), but fixes the revision scope. Two requirements need rewriting:
+Landed in SRS v2.3.2 at
+[`doc/srs/INVEX-SRS-v2.3.2.md`](../../../../doc/srs/INVEX-SRS-v2.3.2.md).
+Two requirements are revised/added, one acceptance criterion amended,
+and eight §3 Definitions entries added:
 
-- **CLS-001 — Per-signal classification.** Currently qualitative on
-  severity ("severity is quantified"). Must become normative against
-  the ECDF formula. The annex stub at
-  [`srs-annex-cls-001-severity-formula.md`](srs-annex-cls-001-severity-formula.md)
-  is the authoritative interim text; the next SRS revision folds it in.
-- **SIG-001 — Signal source categories.** Currently defines the four
-  source categories only. Must be extended (or complemented by a new
-  sub-requirement SIG-001.1) with the **closed-universe indicator
-  registry** constraint: within each source category, admissible
-  indicators are those present in the registry, and the registry is the
-  single source of truth for classifier bootstrap depth, ingestion-side
-  subscription lists, and per-class ECDF calibration parameters (`N`,
-  `D`, `deviation_kind`). Unknown indicators return a well-formed
-  CLS-004 degraded-confidence response rather than an error.
+- **CLS-001 — Per-signal classification.** Previously qualitative on
+  severity ("severity is quantified"). Now normative with the ECDF
+  formula inline, matching the pattern established by CLS-002 and
+  CLS-006. Carries an explicit certainty formula
+  (`source_reliability × temporal_relevance`) and an explicit
+  cross-reference to CLS-009 for the two statistical guard conditions.
+- **CLS-009 — RULE_BASED degraded-confidence fallback (new).** Covers
+  two statistical guard conditions: (i) rolling IQR of the history
+  window below `D`, (ii) symbol absent from the indicator registry.
+  Distinct from CLS-004, which is explicitly scoped to AI model
+  response validation and does not apply to RULE_BASED strategies.
+- **§3 Definitions.** Eight new entries anchor the new vocabulary:
+  `deviation` (with per-category formula table), `deviation_kind`,
+  `ECDF rank`, `history-window length N`, `indicator class`,
+  `indicator registry`, `minimum-informative dispersion D`, and an
+  explicit z-score deprecation note.
+- **§11.12 — Acceptance criterion 12.** Extended to name CLS-001
+  alongside CLS-002 and CLS-006 for hand-calculated acceptance tests
+  against the formulas in the SRS.
 
-Both revisions are carried by the `/chief-architect` engagement (see
-`doc/research/chief-architect-briefing-harness-redesign.md`) and land
-together with the ECDF implementation.
+SIG-001 prose preserved verbatim: its "no fewer than four" phrasing
+underpins CT-01 and CT-08 and was not narrowed. The indicator
+registry is anchored in §3 Definitions rather than as a numbered
+sub-requirement. SRS §8.9 (Insight 7) and §8.10 need no change:
+CLS-001 is not categorised in §8.9 (whose named examples are CLS-002,
+CLS-006, CLS-003, POS-001), so tightening its specification does not
+displace any categorisation.
 
 ## Consequences
 
 ### Positive
 
 - Magic `_TANH_SCALE` constants eliminated. Per-signal severity becomes
-  paper-computable against the CLS-001 annex.
-- CLS-001 shifts from Insight-7 category (b) qualitative to (a)
-  quantitative — one qualitative data point lost among many, not a
-  collapsed experimental variable. This is a principled statistical
-  choice, not a test-passing workaround.
+  paper-computable directly from the revised CLS-001.
 - Acceptance suite can catch formula misimplementation; backtest Layer A
   can catch calibration drift and the self-validating-loop class the
   acceptance suite structurally cannot see.
 - CROSS_ASSET_FLOW (build-step 5) lands on the final formula first —
   avoids a tanh-then-rewrite cycle and its associated test churn.
+- Acceptance criterion §11.12 gains a third entry (CLS-001), tightening
+  the spec's own verification contract.
 
 ### Negative / cost
 
@@ -159,9 +168,41 @@ together with the ECDF implementation.
   (ingestion contract, registry format, bootstrap reload semantics).
 - Backtest suite becomes a required harness layer. New maintenance
   surface.
-- One Insight-7 qualitative data point is spent (CLS-001 tightened).
-  Acceptable — many others remain; this one collapsed under
-  product-level pressure to eliminate the bug class.
+- CLS-001 moves from an implicit qualitative specification to an
+  explicit quantitative one. The population of "qualitative"
+  requirements in the SRS shrinks by one relative to its v2.3.1 state.
+
+### Why a registry, not alternatives
+
+The decision to structure the closed-universe indicator catalogue as
+a registry (vs. hard-coded parameters, symbol-format inference, or no
+closed-universe constraint at all) rests on five properties:
+
+- **Closed-universe safety.** Unknown symbols must fail loud. The
+  alternatives — accept-everything-with-defaults (silent miscalibration)
+  or hard-coded allow-list in code (which *is* a registry, just with
+  worse ergonomics) — are either unsafe or no different in substance.
+- **Calibration per class, not per symbol.** Pooling `|deviation|`
+  across related symbols requires a `symbol → class → parameters`
+  lookup. Without the indirection, either every symbol carries its
+  own parameter row (duplication; `/trader` called out that VIX/VVIX
+  and CPI/PCE each measure genuinely different things) or class
+  membership is inferred from symbol format (fragile, breaks on any
+  naming deviation).
+- **Shared contract between .NET ingestion and Python classifier.**
+  The registry is the single source of truth for the .NET-side
+  WebSocket subscription list and the Python-side calibration
+  parameters. A file is the minimum viable shared artefact across the
+  HTTP boundary; in-memory alternatives would require a second
+  synchronisation mechanism.
+- **Audit trail in git.** Parameter evolution (`D` tuned up, `N`
+  extended, a new class added) lives in git history when the registry
+  is a file. In code it gets mixed with logic changes and gets lost
+  in review.
+- **Operational approval gate.** Adding an indicator class is a
+  trading-risk decision. A PR against a registry file makes that
+  decision visible in review; a code change buries it among
+  unrelated logic.
 
 ### Ingestion-job impact (.NET side)
 
@@ -175,7 +216,7 @@ Python classifier:
   sides must agree.
 - **WebSocket subscription list (.NET side) becomes registry-derived** —
   only registered symbols stream.
-- **Unknown symbols trigger the CLS-004 degraded-confidence fallback**
+- **Unknown symbols trigger the CLS-009 degraded-confidence fallback**
   across the HTTP boundary, not a silent zero.
 - **No formula computation moves to .NET.** Plumbing stays thin. Only
   the registry-as-contract is new between the two services.
@@ -195,9 +236,11 @@ the ECDF formula from the start.
 
 - Plan: `C:\Users\Radu\.claude\plans\structured-percolating-parrot.md`
 - ADR-0001: [`0001-per-indicator-tuning-parameters.md`](0001-per-indicator-tuning-parameters.md)
-- CLS-001 severity-formula SRS annex stub: [`srs-annex-cls-001-severity-formula.md`](srs-annex-cls-001-severity-formula.md)
+- CLS-001 severity-formula SRS annex stub (Superseded by SRS v2.3.2):
+  [`srs-annex-cls-001-severity-formula.md`](srs-annex-cls-001-severity-formula.md)
 - Limitations cross-reference: [`../../LIMITATIONS.md`](../../LIMITATIONS.md) #1, #3, #4, #5
 - Harness framework: [`../../HARNESS.md`](../../HARNESS.md)
 - `/chief-architect` briefing: `doc/research/chief-architect-briefing-harness-redesign.md`
-- SRS: `doc/INVEX-SRS-v2.3.1.pdf` (CLS-001, CLS-004, §9 Validation Event Set)
+- SRS: [`doc/srs/INVEX-SRS-v2.3.2.md`](../../../../doc/srs/INVEX-SRS-v2.3.2.md)
+  (CLS-001, CLS-009, §9 Validation Event Set)
 - ADR format: Michael Nygard, *Documenting Architecture Decisions* (2011)

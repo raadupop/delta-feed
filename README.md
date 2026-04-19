@@ -82,7 +82,7 @@ The full pipeline:
 7. **Exit** (.NET, EXT-001) — close positions on thesis expiry or stop
 
 The six architecture iterations each reimplement the .NET side of this
-pipeline. Requirements are specified once in `doc/INVEX-SRS-v2.3.1`; the
+pipeline. Requirements are specified once in `doc/srs/INVEX-SRS-v2.3.2.md`; the
 external contract is `doc/INVEX-API-v1.yaml`; neither changes across
 iterations.
 
@@ -160,8 +160,9 @@ apps/
     HARNESS.md             Framework, inventory, gap map
     AGENTS.md              Service-local agent context
 doc/
-  INVEX-SRS-v2.3.1         Software Requirements Specification
+  srs/INVEX-SRS-v2.3.2.md  Software Requirements Specification (Markdown-native)
   INVEX-API-v1.yaml        External .NET API contract
+  archive/                 Superseded binaries (v2.3.1 .docx/.pdf)
 AGENTS.md                  Repository-level agent context
 .github/
   copilot-instructions.md  Pointer to AGENTS.md for Copilot
@@ -190,5 +191,5 @@ AGENTS.md                  Repository-level agent context
 - `apps/classification/AGENTS.md` — service-local conventions
 - `apps/classification/HARNESS.md` — harness framework and test inventory
 - `apps/classification/doc/adr/` — architectural decision records
-- `doc/INVEX-SRS-v2.3.1` — full requirements
+- `doc/srs/INVEX-SRS-v2.3.2.md` — full requirements
 - `doc/INVEX-API-v1.yaml` — external .NET API contract

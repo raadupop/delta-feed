@@ -36,9 +36,5 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
-# Documentation (track .yaml files, ignore everything else)
-doc/*
-!doc/*.yaml
-
 # Empty placeholders
 apps/core/

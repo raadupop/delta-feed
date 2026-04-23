@@ -1,0 +1,36 @@
+{
+  "_comment": "2026 Iran war — US/Israel joint strike on Iran (Feb 28 weekend), OVX pre-strike close 64.68 on Feb 27. Window absorption axis: OVX was already elevated (50s) due to pre-war tension, so z-score only 2.09 despite absolute deviation of +10.61 above the 20-day median. SRS CLS-001 ECDF severity = 17/20 = 0.85 (rank of |deviation| among 20 window deviations). Current tanh implementation produces ~0.10 — test will FAIL until ECDF is implemented. This is intentional: the band follows the SRS, not the code.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "OVXCLS",
+    "description": "CBOE Crude Oil ETF Volatility Index (daily close)",
+    "retrieved_at": "2026-04-23T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/OVXCLS",
+    "window_range": "2026-01-29 .. 2026-02-26 (last 20 trading-day closes before event)",
+    "current_value_date": "2026-02-27"
+  },
+  "symbol": "OVX",
+  "last_update": "2026-02-26T00:00:00+00:00",
+  "window": [
+    55.37, 55.91, 48.70, 52.34, 55.13, 54.97, 53.18, 50.79, 48.02, 44.33,
+    42.00, 42.18, 42.54, 51.49, 56.73, 56.12, 59.05, 58.82, 58.97, 59.80
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "OVX",
+      "current_value": 64.68,
+      "timestamp": "2026-02-27T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "expected_score": 0.85,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "source_reliability_min": 0.85,
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "SRS CLS-001 ECDF: median(window)=54.075, |deviation|=|64.68-54.075|=10.605. Deviations of all 20 window values from median: 17 of 20 are ≤ 10.605, so ecdf_rank=17, severity=17/20=0.85. This is exact integer arithmetic — no tolerance needed, band is [0.85, 0.85]. Key teaching axis: despite the absolute move being large, the window was already elevated (pre-war tension kept OVX in the 50s for all of Jan-Feb 2026), meaning 3 historical deviations actually exceed the event deviation. The ECDF correctly captures this as high-but-not-extreme at 0.85. The current tanh implementation (~0.10) understates the event by ~8×. Contrast with market_data_ovx_aramco_attack_2019_09_16 (clean baseline). PENDING: /trader signoff on 0.85 band and geopolitical context."
+  }
+}

@@ -75,9 +75,14 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
 
     band = anchor["expected_band"]
     score = body["score"]
-    assert band["score_min"] <= score <= band["score_max"], (
-        f"{anchor_name}: score {score} outside band [{band['score_min']}, {band['score_max']}]"
-    )
+    if "expected_score" in band:
+        assert score == band["expected_score"], (
+            f"{anchor_name}: score {score} != expected {band['expected_score']}"
+        )
+    else:
+        assert band["score_min"] <= score <= band["score_max"], (
+            f"{anchor_name}: score {score} outside band [{band['score_min']}, {band['score_max']}]"
+        )
     assert body["score_type"] == band["score_type"]
 
     if "classification_method" in band:

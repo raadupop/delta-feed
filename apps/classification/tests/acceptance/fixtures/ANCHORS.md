@@ -4,6 +4,19 @@ Reviewed catalogue of historical events used as black-box acceptance anchors.
 One JSON fixture per row lives in this directory; the acceptance runner loads
 them all via glob (`tests/acceptance/test_anchor_events.py`).
 
+## Band-Derivation Rule (STRICT)
+
+Expected bands in every fixture MUST be derived from the **SRS formula**,
+not from the current implementation output. Bands that test what the code
+produces are self-validating — they can never catch a wrong implementation.
+
+- For `MARKET_DATA` and `MACROECONOMIC` RULE_BASED anchors: use
+  `ecdf_rank(|deviation|) / N` per SRS §5.2 CLS-001.
+- If the implementation has not yet reached the specified formula, the
+  fixture band will produce a **failing test**. That failure is correct
+  and intentional — it is the spec asserting its requirements.
+- Do **not** adjust a band to make a test green. Fix the implementation.
+
 ## Source-Provenance Rule (STRICT)
 
 Every fixture value — seed window, `actual`, `expected`, price points,
@@ -40,6 +53,7 @@ data point cannot be sourced, the anchor is **dropped**, not approximated.
 | 7 | 2020-03-09 | MARKET_DATA | VIX | `market_data_vix_covid_mid_crisis_2020_03_09.json` | SOURCED, PENDING /trader | **Window absorption axis.** VIX 42→54 but window already contains Feb 24 spike — z only +2.75, severity ~0.14 vs Feb 24's 0.31. Documents how rolling window absorbs developing crises. |
 | 8 | 2020-04-17 | MARKET_DATA | VIX | `market_data_vix_vol_crush_2020_04_17.json` | SOURCED, PENDING /trader | **Downward-move axis.** VIX drops from elevated window (~53 mean) to 38.15. abs(z_score) means crush scores same as spike — tests symmetry assumption. |
 | 9 | 2019-07-15 | MARKET_DATA | VIX | `market_data_vix_normal_day_2019_07_15.json` | SOURCED, PENDING /trader | **Noise-zone axis.** Calm summer day, VIX 12.68 vs window mean 14.41. Severity ~0.07 — guards against score inflation that would trigger false composite signals. |
+| 10 | 2026-02-27 | MARKET_DATA | OVX | `market_data_ovx_iran_war_2026_02_27.json` | SOURCED, PENDING /trader | **Window-absorption axis (crude vol, escalating crisis).** OVX 64.68, median 54.08, \|dev\|=10.61. ECDF rank 17/20 → **severity=0.85** (SRS CLS-001). Current tanh impl ~0.10 — test FAILS until ECDF implemented. Data: FRED OVXCLS, retrieved 2026-04-23. |
 
 ## Candidate Pool — Phase 1 Convexity Analysis
 

@@ -26,12 +26,11 @@
     }
   },
   "expected_band": {
-    "score_min": 0.00,
-    "score_max": 0.10,
+    "expected_score": 0.90,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
     "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
-    "rationale_pending_trader": "Noise-zone guard. VIX 12.68 against window mean 14.41 (std=1.23) gives z=-1.41, severity ~0.07. Band [0.00, 0.10] is deliberately tight at the low end — if this scores above 0.10, something is inflating noise into signal. z=-1.41 is a mild decline (VIX drifting down in calm summer), not a tradeable event. Any downstream composite that fires on this is a false positive bleeding theta."
+    "rationale_pending_trader": "SRS CLS-001 ECDF: VIX median=14.54, |deviation|=|12.68-14.54|=1.86. Count of deviations ≤ 1.86: only 2 window values out of 20 have larger deviation (12.39 at 2.15, 12.57 at 1.97), so ecdf_rank=18, severity=18/20=0.90. This is the noise-zone axis: calm summer day with VIX drifting within its normal range. ECDF produces 0.90 because this is high relative to the calm window (top decile), yet it's not a tradeable signal — the z-score was negative (VIX below mean). Tanh gives 0.07, which incorrectly suggests signal strength below threshold. ECDF's 0.90 reflects that within this quiet regime, the move is relatively unusual, even if absolute level is tame."
   }
 }

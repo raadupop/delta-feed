@@ -26,12 +26,11 @@
     }
   },
   "expected_band": {
-    "score_min": 0.85,
-    "score_max": 0.92,
+    "expected_score": 1.00,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
     "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
-    "rationale_pending_trader": "Volmageddon — extreme move (3.6x the window mean, >25 std devs). Current implementation returns ~0.88; band [0.85, 0.92] survives tanh_scale 18-22 but catches regressions."
+    "rationale_pending_trader": "SRS CLS-001 ECDF: VIX median=11.08, |deviation|=|37.32-11.08|=26.24. All 20 historical deviations are ≤ 26.24 (window range spans only ~11 to ~12), so ecdf_rank=20, severity=20/20=1.00. This is the definitive extreme event — VIX went to 37 from a completely calm regime. The current tanh implementation (~0.88) understates this by design (it caps severity below 1.0 until z exceeds ~6). ECDF produces 1.00 correctly: this is the most extreme reading in the window."
   }
 }

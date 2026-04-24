@@ -26,12 +26,11 @@
     }
   },
   "expected_band": {
-    "score_min": 0.45,
-    "score_max": 0.57,
+    "expected_score": 1.00,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
     "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
-    "rationale_pending_trader": "Aramco drone attack — OVX jumped from ~35 range to 48.58 in one day (z=+11.2 against a calm 20-day window with std=1.32). Severity ~0.51 at scale=20. Band [0.45, 0.57] covers tanh_scale 18-22. Key axis: non-VIX symbol sharing the same _TANH_SCALE=20.0 — crude oil vol has structurally higher baseline (~33 vs VIX ~12-15) and different spike dynamics. If scale is wrong for OVX, this anchor catches it."
+    "rationale_pending_trader": "SRS CLS-001 ECDF: OVX median=33.525, |deviation|=|48.58-33.525|=15.055. All 20 historical deviations are ≤ 15.055 (window spans 31.82-35.73, all deviations ≤ 2.205), so ecdf_rank=20, severity=20/20=1.00. Saudi Aramco drone attack — the market repriced OVX risk overnight. Against a calm crude-oil baseline, this is the maximum deviation in the window. Key axis: non-VIX symbol — OVX has higher baseline and narrower typical range than VIX, so the same _TANH_SCALE=20.0 produces different severity distributions. ECDF adapts automatically: 1.00 reflects the regime-relative extremeness. Tanh would give ~0.51, which undershoots."
   }
 }

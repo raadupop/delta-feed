@@ -29,12 +29,11 @@
     }
   },
   "expected_band": {
-    "score_min": 0.80,
-    "score_max": 0.92,
+    "expected_score": 1.00,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
     "source_reliability_min": 0.95,
     "temporal_relevance_min": 0.85,
-    "rationale_pending_trader": "0.5pp upside surprise during peak-inflation regime — unambiguously a material signal. Current implementation returns ~0.87."
+    "rationale_pending_trader": "SRS CLS-001 ECDF: |deviation|=|9.1-8.6|=0.5pp. All 30 historical surprise magnitudes in the window are ≤ 0.5 (max in window is 0.5, which ties), so ecdf_rank=30, severity=30/30=1.00. Peak-inflation event — the 0.5pp upside surprise matches the single largest historical surprise in the 30-month window. ECDF left-continuous convention: ties count (≤), so rank=30. The current tanh implementation (~0.87) understates. 1.00 is correct: this was a once-in-a-window extreme."
   }
 }

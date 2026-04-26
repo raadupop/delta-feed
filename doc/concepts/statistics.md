@@ -424,20 +424,19 @@ Why INVEX calibrates per *class* (group of symbols), not per symbol.
 
 ---
 
-## 17. Minimum-Informative Dispersion (D)
+## 17. Window-Degeneracy Guard (replaces per-class `D`)
 
-A floor on history-window IQR that guards against ECDF false-highs in quiet regimes.
+A global check that the history window has enough distinct values for the ECDF rank to be meaningful, regardless of dispersion shape.
 
-**The pathology.** Suppose OVX (crude-oil vol) has been trading in a range of 22.0 to 22.3 for 60 days — IQR ≈ 0.2, genuinely flat regime. A modest move to 22.5 produces `|deviation| ≈ 0.3`, which ranks above every one of the 60 history points → **ECDF rank = 1.0, severity = 1.0**. The classifier screams. The market yawns. The signal is a false-high, caused by the history being too tight to distinguish noise from signal.
+**The pathology.** Suppose OVX has been trading in a range of 22.0 to 22.3 for 60 days — flat regime. A modest move to 22.5 ranks above every one of the 60 history points → **ECDF rank = 1.0, severity = 1.0**. The classifier screams. The market yawns.
 
-**The guard.** Per-class `D` threshold on rolling IQR:
+**The guard (ADR-0003).** Compute the count of distinct values in the history window after rounding to 4 decimals. If that count is below a global threshold `k_min` (= 10), the history is declared degenerate:
 
-- Compute `IQR(history)` each period.
-- If `IQR(history) < D`, the history is declared insufficiently informative.
-- The classifier returns a **CLS-009 degraded-confidence response** instead of the raw ECDF severity — with `computed_metrics.dispersion_below_floor = true` so the composite (CLS-002) can exclude it deterministically.
+- The classifier returns a **CLS-009 degraded-confidence response** instead of the raw ECDF severity.
+- `computed_metrics.window_degenerate = true` so the composite (CLS-002) can exclude it deterministically.
 
-**Why IQR not std for the floor.** Exactly the §11 argument: a single recent spike inflates std, which would make the floor falsely pass even though the remaining history is flat. IQR ignores the top/bottom 25% of the window, so a single outlier doesn't move it.
+**Why `k_min` and not a per-class IQR floor (`D`).** A defensible empirical-p5 estimate of an IQR distribution requires ≥ 200 non-overlapping IQR observations, i.e. `200 × N` raw points. For monthly inflation at `N = 60`, that is 1,000 years of data — unreachable. Any per-class `D` set without that data is a placeholder, not a calibrated parameter. The `k_min` threshold instead is sample-size independent and distribution-free: 10 distinct values is the resolution floor below which a percentile rank cannot resolve finer than 10 percentage points, period. `/statistician` rejects per-class `D` calibration at the available sample sizes; `/trader` accepts the global threshold because it lines up with desk experience for what counts as "enough variation to call a tail."
 
-**Why per class.** Different indicator classes have different "normal" dispersion levels. Equity-IV classes might need `D ≈ 1.5`; crude-vol classes might need `D ≈ 3.0`; inflation-surprise classes have their own scale. One global `D` would over-trip on genuinely-volatile classes and under-trip on quiet ones.
+**Why rounding to 4 decimals.** Matches the significance of the inputs — FRED daily closes carry 2 decimals, pct-change `|deviation|` carries at most 4–5 significant decimals after division. Rounding to 4 squashes float noise without conflating genuinely distinct values.
 
-**Trade-off made explicit.** The floor introduces false-negatives in genuine slow-burn regime-change events (OVX grinding upward from 22 to 25 over a month). INVEX accepts that trade because the alternative (false-highs in quiet regimes) produces wrong trades, which cost money. The CLS-009 degraded-confidence envelope is a signal to the composite layer that "we saw something but we're not confident" — not silent suppression.
+**Trade-off made explicit.** The guard introduces false-negatives in genuine slow-burn regime-change events (OVX grinding upward from 22 to 25 over a month, all distinct values). It will *not* trip then, because the history has plenty of distinct values — that is the correct behaviour, those grinds should produce real ranks. The guard's only job is to catch the pathological case where the history has structurally collapsed.

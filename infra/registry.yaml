@@ -7,20 +7,21 @@
 #   - .NET ingestion job (future iterations 1+) — WebSocket subscription
 #     list, REST bootstrap pulls, staleness alert thresholds.
 #
-# Schema (governed by ADR-0002):
+# Schema (governed by ADR-0002, amended by ADR-0003):
 #
 #   classes:
 #     <class_name>:
 #       N:                          history-window length (count of past
 #                                   |deviation| values the ECDF ranks against)
-#       D:                          minimum-informative-dispersion floor
-#                                   (rolling IQR < D → CLS-009 degraded
-#                                   confidence)
 #       deviation_kind:             how |deviation| is computed
 #                                   (pct_change | surprise_yoy | corr_delta)
 #       expected_frequency_seconds: normal update cadence
 #                                   (drives temporal_relevance decay and
 #                                   .NET staleness thresholds)
+#
+#   The earlier `D` (minimum-informative-dispersion floor) parameter was
+#   removed in ADR-0003. The CLS-009 first guard is now a global window-
+#   degeneracy check on the history itself, not a per-class threshold.
 #
 #   symbols:
 #     <symbol>:
@@ -46,11 +47,13 @@
 #     their own ECDF reference distributions. Pooling history across symbols
 #     within a class is OUT OF SCOPE.
 #
-# Calibration status (D values):
-#   D values below are placeholders matched to operator + /trader intuition.
-#   None have been derived from rolling-IQR distributions on real data.
-#   See apps/classification/LIMITATIONS.md #6. Calibration is /trader +
-#   /statistician work.
+# Calibration status (N values):
+#   N values below are operator-set with /trader + /statistician input.
+#   Vol-index classes use 504 (~2y daily) for tail-resolution at p99/p99.5.
+#   Macroeconomic classes use shorter windows because longer ones span
+#   regime breaks (CPI: 5y monthly avoids the pre-2020 regime; weekly
+#   claims: 3y avoids the COVID artifact). The full /trader sanity-gate
+#   protocol for confirming N is documented in apps/classification/LIMITATIONS.md #6.
 #
 # Reload semantics:
 #   Read once at classifier startup. Changes require process restart.
@@ -66,8 +69,7 @@ classes:
   # for one updates all four.
   equity_vol_index:
     source_category: MARKET_DATA
-    N: 252
-    D: 0.5
+    N: 504
     deviation_kind: pct_change
     expected_frequency_seconds: 86400
 
@@ -77,8 +79,7 @@ classes:
   # caveat in session-notes 2026-04-26).
   commodity_vol_index:
     source_category: MARKET_DATA
-    N: 252
-    D: 1.0
+    N: 504
     deviation_kind: pct_change
     expected_frequency_seconds: 86400
 
@@ -88,7 +89,6 @@ classes:
   us_inflation_yoy:
     source_category: MACROECONOMIC
     N: 60
-    D: 0.1
     deviation_kind: surprise_yoy
     expected_frequency_seconds: 2592000
 
@@ -97,7 +97,6 @@ classes:
   us_labor_weekly:
     source_category: MACROECONOMIC
     N: 156
-    D: 0.15
     deviation_kind: surprise_yoy
     expected_frequency_seconds: 604800
 

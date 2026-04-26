@@ -28,14 +28,20 @@ def clean_state():
 @needs_api_key
 @pytest.mark.asyncio
 async def test_bootstrap_populates_vix_and_ovx():
-    """Bootstrap should populate both VIX and OVX with up to 20 daily closes from FRED."""
+    """Bootstrap should populate both VIX and OVX with up to N daily closes from FRED."""
     await populate_windows()
 
     for symbol in ("VIX", "OVX"):
         assert symbol in state.windows, f"{symbol} window missing after bootstrap"
         rw = state.windows[symbol]
-        assert len(rw.values) >= 15, f"{symbol} window has {len(rw.values)} values, expected >= 15"
-        assert len(rw.values) <= 20, f"{symbol} window has {len(rw.values)} values, expected <= 20"
+        n = rw.indicator_class.N
+        # Allow some slack for weekends/holidays vs. the calendar-day fetch range.
+        assert len(rw.values) >= int(n * 0.6), (
+            f"{symbol} window has {len(rw.values)} values, expected >= {int(n * 0.6)} (N={n})"
+        )
+        assert len(rw.values) <= n, (
+            f"{symbol} window has {len(rw.values)} values, expected <= {n} (N={n})"
+        )
         assert all(isinstance(v, float) for v in rw.values), f"{symbol} window contains non-float"
         assert all(v > 0 for v in rw.values), f"{symbol} window contains non-positive value"
         assert rw.last_update is not None, f"{symbol} last_update not set after bootstrap"

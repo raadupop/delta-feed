@@ -6,7 +6,8 @@ Per ADR-0002: severity = ecdf_rank(|deviation|) / N, where
 
 CLS-009 degraded-confidence fallback fires when:
 - The indicator is absent from the registry (UnknownSymbolError).
-- The rolling IQR of the history window is below the class's D floor.
+- The history window is degenerate (ADR-0003: fewer than k_min distinct
+  values after rounding).
 - The history is too thin to rank against (< 2 entries).
 """
 from __future__ import annotations
@@ -15,7 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from app.math.deviation import surprise_yoy_deviation
-from app.math.dispersion import is_dispersion_below_floor, rolling_iqr
+from app.math.dispersion import is_window_degenerate, rolling_iqr
 from app.math.ecdf import ecdf_rank
 from app.math.temporal import compute_temporal_relevance
 from app.models.requests import ClassifyRequest, MacroeconomicPayload
@@ -72,12 +73,12 @@ class MacroeconomicStrategy(ClassificationStrategy):
             )
 
         iqr = rolling_iqr(window.values)
-        if is_dispersion_below_floor(window.values, indicator_class.D):
+        if is_window_degenerate(window.values):
             window.append(deviation, signal_time)
             return _degraded(
                 reason=(
-                    f"{symbol} |deviation|={deviation:.4f} — history IQR={iqr:.4f} "
-                    f"below floor D={indicator_class.D} (CLS-009 dispersion-floor trip)"
+                    f"{symbol} |deviation|={deviation:.4f} — history window degenerate "
+                    f"(insufficient distinct values; CLS-009 window-degeneracy trip)"
                 ),
                 certainty=certainty,
                 source_reliability=source_reliability,
@@ -86,7 +87,7 @@ class MacroeconomicStrategy(ClassificationStrategy):
                     "deviation": round(deviation, 4),
                     "ecdf_rank": None,
                     "rolling_iqr": round(iqr, 4),
-                    "dispersion_below_floor": True,
+                    "window_degenerate": True,
                 },
             )
 
@@ -108,13 +109,13 @@ class MacroeconomicStrategy(ClassificationStrategy):
             reasoning_trace=(
                 f"{symbol} actual={actual} expected={expected} "
                 f"|deviation|={deviation:.4f}; ECDF rank={rank:.4f} "
-                f"(history_n={len(window.values) - 1}, D={indicator_class.D}, IQR={iqr:.4f})"
+                f"(history_n={len(window.values) - 1}, IQR={iqr:.4f})"
             ),
             computed_metrics={
                 "deviation": round(deviation, 4),
                 "ecdf_rank": round(rank, 4),
                 "rolling_iqr": round(iqr, 4),
-                "dispersion_below_floor": False,
+                "window_degenerate": False,
             },
         )
 

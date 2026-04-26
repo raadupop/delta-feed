@@ -46,24 +46,26 @@ The formula is distribution-free and regime-adaptive: a move's rank
 adjusts automatically as the indicator's distribution shifts. It
 eliminates the scale constant (`_TANH_SCALE`) that ADR-0002 retires.
 
-## Dispersion-floor guard
+## Window-degeneracy guard
 
-Let `dispersion(H)` be the rolling IQR (or std, per registry) of the
-history window. For each per-class registry entry a minimum-informative
-dispersion floor `D` is configured.
+Let `distinct(H)` be the count of unique values in the history window
+after rounding to 4 decimals.
 
 ```
-if dispersion(H) < D:
+if distinct(H) < k_min:        # k_min = 10, global (ADR-0003)
     classification_method = RULE_BASED
-    score                 = ecdf_rank(|deviation|) / N         # computed as usual
-    computed_metrics.dispersion_below_floor = true
-    certainty            *= DEGRADED_FACTOR                     # CLS-004 fallback shape
+    score                 = ecdf_rank(|deviation|) / N        # computed as usual
+    computed_metrics.window_degenerate = true
+    certainty            *= DEGRADED_FACTOR                    # CLS-004 fallback shape
 ```
 
-Rationale: ECDF off a flat history inflates modest moves to p95+. `D`
-prevents that by attaching a degraded-confidence envelope. This
-addresses the OVX quiet-regime and event-clustering pathologies
-identified by `/trader` in the ADR-0002 stress test.
+Rationale: a percentile rank over fewer than 10 distinct values has
+resolution coarser than 10 percentage points; below that the rank is not
+informative regardless of the underlying distribution. ADR-0003
+supersedes the per-class IQR floor (`D`) that the earlier draft of this
+annex described. The new check is sample-size independent and
+distribution-free, so it works at the sample sizes available for monthly
+and weekly series, where a calibrated `D` could not be defended.
 
 ## Registry schema
 
@@ -72,7 +74,6 @@ Each indicator class is registered as:
 ```yaml
 indicator_class:
   N: <int>                 # history-window length
-  D: <float>               # minimum-informative-dispersion floor
   deviation_kind: enum     # LEVEL_VS_MEDIAN | SURPRISE | CORR_DEVIATION
 ```
 

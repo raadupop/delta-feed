@@ -28,7 +28,6 @@ class IndicatorClass(BaseModel):
     name: str
     source_category: SourceCategory
     N: int = Field(gt=0)
-    D: float = Field(gt=0.0)
     deviation_kind: DeviationKind
     expected_frequency_seconds: int = Field(gt=0)
 

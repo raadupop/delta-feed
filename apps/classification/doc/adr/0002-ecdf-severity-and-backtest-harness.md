@@ -4,7 +4,11 @@
 - **Date:** 2026-04-18
 - **Deciders:** Radu Pop
 - **Supersedes:** ADR-0001 Decision 2 (parameters travel in the request payload)
-- **Superseded by:** —
+- **Superseded in part by:** [ADR-0003](0003-window-degeneracy-guard.md) — the
+  `D` (minimum-informative-dispersion floor) per-class registry parameter is
+  removed and replaced with a global window-degeneracy check. `N`,
+  `deviation_kind`, `expected_frequency_seconds`, and the rest of this ADR
+  are unaffected.
 - **Relates to:** ADR-0001 (per-indicator tuning parameters)
 
 ## Context

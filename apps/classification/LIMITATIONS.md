@@ -8,7 +8,7 @@ Production-critical weaknesses tracked here. Each entry includes the risk and wh
 
 **Affects:** MARKET_DATA, MACROECONOMIC (and future CROSS_ASSET_FLOW) strategies
 
-**Status:** Addressed by ADR-0001 Phase B + ADR-0002. Severity is now an ECDF rank against the per-symbol rolling history; there is no `_TANH_SCALE` constant. Calibration knobs (`N`, `D`) live in [`infra/registry.yaml`](../../infra/registry.yaml) per indicator class — paper-computable per indicator without a magic scale constant. Empirical calibration of `N`/`D` itself is tracked separately as #6.
+**Status:** Addressed by ADR-0001 Phase B + ADR-0002. Severity is now an ECDF rank against the per-symbol rolling history; there is no `_TANH_SCALE` constant. The remaining per-class calibration knob is `N` (history length) in [`infra/registry.yaml`](../../infra/registry.yaml), paper-computable per indicator without a magic scale constant. The earlier `D` (minimum-informative-dispersion floor) was removed by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md). Empirical calibration of `N` itself is tracked separately as #6.
 
 ---
 
@@ -27,7 +27,7 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 ## 3. ~~Fixed `tanh` curve for severity mapping~~ — ADDRESSED
 
-**Status:** Addressed by ADR-0002. Severity is now `ecdf_rank(|deviation|)` against the per-symbol rolling history, not `tanh(value / scale)`. No assumed curve shape, no tuning constant, adapts as the distribution shifts. Calibration of the per-class `N` (history length) and `D` (dispersion floor) is tracked separately as #6.
+**Status:** Addressed by ADR-0002. Severity is now `ecdf_rank(|deviation|)` against the per-symbol rolling history, not `tanh(value / scale)`. No assumed curve shape, no tuning constant, adapts as the distribution shifts. Calibration of the per-class `N` (history length) is tracked separately as #6. The earlier `D` (minimum-informative-dispersion floor) was removed by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md) and replaced with a global window-degeneracy check.
 
 ---
 
@@ -64,28 +64,35 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 ---
 
-## 6. Registry parameters (`N`, `D`) are uncalibrated placeholders
+## 6. Registry parameter `N` is operator-set, not anchor-validated
 
-**Status:** PLANNED — calibration is `/trader` + `/statistician` work, separate from registry mechanics.
+**Status:** PLANNED — `N` calibration via trader sanity gate is `/trader` + `/statistician` work, separate from registry mechanics. The earlier `D` half of this limitation was removed entirely by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md): the per-class dispersion floor is replaced by a global window-degeneracy check (no calibration ever needed).
 
 **Affects:** All RULE_BASED strategies once ECDF lands ([ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md)).
 
-**Risk:** [`infra/registry.yaml`](../../infra/registry.yaml) ships with `N` and `D` values matched to operator + `/trader` intuition, not derived from real data. Specifically:
+**Risk:** [`infra/registry.yaml`](../../infra/registry.yaml) ships with `N` values (504 / 60 / 156) chosen from operator + `/trader` + `/statistician` reasoning, not anchor-validated against the 10 historical events. `/statistician` notes percentile resolution is `1/N`: 504 gives 0.2pp at the tail (fine for separating p99 from p99.5, where capital decisions live); 60 gives 1.7pp (the resolution ceiling for monthly inflation given the 5y window cannot grow without crossing the 2020 regime break); 156 gives 0.6pp (3y weekly claims; tightening to 104 would drop the COVID artifact at the cost of resolution). `/trader` notes the score's *meaning* depends on `N` — "severity 0.85" against 504 daily values means something different from 0.85 against 252; the trader's intuition table must confirm the chosen `N` produces severities that match desk experience for the anchor events.
 
-- **`N`** values (252 / 60 / 156) are conventional choices (one trading year, five years of monthly inflation, three years of weekly claims). They are defensible defaults but have not been validated against ECDF rank stability on the actual symbols.
-- **`D`** values (0.5 / 1.0 / 0.1 / 0.15) are placeholder dispersion floors. None are derived from rolling-IQR distributions on real history. Until calibrated, the CLS-009 dispersion-floor guard fires at thresholds that may be too loose (lets quiet-regime false-highs through) or too tight (degrades confidence on legitimate signals).
+**Sample-size constraint** (`/statistician`): the sample-size argument that previously haunted `D` calibration (≥ 200 non-overlapping IQR observations) does not apply to `N` — `N` is a structural choice, not a parameter estimated from a distribution. The choice is bounded above by regime stability (don't span a regime break) and below by tail resolution (`1/N` percentile-point gap at the extreme).
 
-**Current state:** Registry exists with placeholder values. ECDF code that consumes them is unimplemented (build-step pending).
+**Current state:** Registry exists with operator-set values. ECDF code consumes them. Trader sanity gate has not been run.
 
-**Production fix:**
+**Cadence:** `N` calibration is one-shot per class, not continuous. The runtime rolling window is what adapts to fresh data — `N` is a *structural* parameter set deliberately and left alone. Re-trigger only on (a) a regime break (e.g., the next inflation regime change), (b) adding a new symbol to an existing class and confirming class parameters still hold, or (c) the trader sanity gate failing on a new anchor. JVM-heap-size discipline, not weather-forecast discipline.
 
-1. Pull 5+ years of history per symbol (FRED for inflation/labor, CBOE/Twelve Data for vol indices).
-2. Compute rolling-IQR distribution per symbol with the proposed `N`.
-3. Set `D` per class at the empirical 5th-percentile of the IQR distribution (or whatever percentile `/statistician` defends).
-4. Validate `N` by re-running ECDF on historical events and checking that severity ranks correlate with `/trader` intuition for known events (e.g., COVID first spike should rank > p95).
-5. Update `infra/registry.yaml` with calibrated values, document the calibration commit in this entry.
+**Production fix (`N` calibration protocol):**
 
-**Reversibility:** Trivial. `git revert` on the registry change. CoBW: bounded — only affects severity scores between deploy and recalibration.
+1. **Data pull.** Per class, pull the longest reasonable history from the verified provider:
+   - `equity_vol_index`, `commodity_vol_index`: 10y daily (FRED).
+   - `us_inflation_yoy`: 30y monthly (FRED).
+   - `us_labor_weekly`: 15y weekly (FRED).
+2. **Compute the `|deviation|` series independently of the classifier.** Implement `deviation_kind` directly from the SRS definition in the calibration script (e.g. pandas `pct_change`, explicit YoY arithmetic). **Do not import `app.bootstrap.window_builders`** — that's the ADR-0002 self-validating-loop trap in a different costume. A bug shared between calibration and runtime would launder itself into the calibrated `N` and become invisible. The two implementations agreeing under cross-check is part of the calibration's evidence.
+3. **`N` candidate evaluation.** For each class and each candidate `N` in a small grid (e.g. `{252, 504, 756}` for daily-vol classes), bootstrap-resample the `|deviation|` series and compute rank stability for ≥ 5 anchor events per class. Prefer the smallest `N` that holds rank variance ≤ ±5 percentile points *and* respects regime-stability bounds (don't span a known regime break). Document the per-event variance table in the calibration commit.
+4. **Trader sanity gate.** Run all 10 anchor events through the chosen `N` and produce the severity-vs-trader-intuition table. Block the merge if any anchor's severity diverges by more than 0.25 from `/trader`'s intuition score without an articulated reason.
+5. **Regime-bucketed validation.** Report severity distributions within VIX-bucketed regimes (calm: VIX < 15, normal: 15–25, elevated: 25–40, crisis: > 40). Document divergence per class — flat severity across regimes is either a feature (events are events) or a bug (regime layer is missing); the calibration commit must say which.
+6. **Liquidity-window pairing.** Optional in this iteration but blocking before live capital: pair anchor severity with measured intraday IV reaction window from CBOE quotes. Validates that the rank is *useful*, not just statistically sound.
+
+Calibrated `N` values get a `# rationale: …` comment in [`infra/registry.yaml`](../../infra/registry.yaml). Reviewers reject PRs that change `N` without one.
+
+**Reversibility:** Trivial. `git revert` on the registry change. CoBW: bounded — affects severity scores between deploy and recalibration; black-box acceptance fixtures pin to bands and would surface gross drift.
 
 ---
 

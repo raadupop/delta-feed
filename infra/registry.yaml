@@ -1,0 +1,193 @@
+# INVEX indicator registry
+#
+# Single source of truth for:
+#   - Python classifier (apps/classification/) — calibration parameters per
+#     indicator class, symbol → class resolution at request time, bootstrap
+#     provider/series_id resolution at startup.
+#   - .NET ingestion job (future iterations 1+) — WebSocket subscription
+#     list, REST bootstrap pulls, staleness alert thresholds.
+#
+# Schema (governed by ADR-0002):
+#
+#   classes:
+#     <class_name>:
+#       N:                          history-window length (count of past
+#                                   |deviation| values the ECDF ranks against)
+#       D:                          minimum-informative-dispersion floor
+#                                   (rolling IQR < D → CLS-009 degraded
+#                                   confidence)
+#       deviation_kind:             how |deviation| is computed
+#                                   (pct_change | surprise_yoy | corr_delta)
+#       expected_frequency_seconds: normal update cadence
+#                                   (drives temporal_relevance decay and
+#                                   .NET staleness thresholds)
+#
+#   symbols:
+#     <symbol>:
+#       class:     <class_name>     membership; unknown symbols at runtime
+#                                   trigger CLS-009 fallback
+#       bootstrap:                  optional — tells the loader how to fetch
+#                                   the initial history window
+#         provider:    fred | finnhub | twelve_data
+#         series_id:   provider-specific identifier (e.g. FRED "VIXCLS")
+#         derive:      optional transform (pct_change_yoy | none)
+#                      — pct_change_yoy converts a level series into
+#                        12-period percent-change for inflation YoY symbols
+#         verified:    bool — if false, bootstrap skips with a warning
+#                      (series_id is a guess and needs operator confirmation
+#                      against the provider)
+#       Symbols missing a bootstrap block are registered but not
+#       pre-populated; their windows fill from live /classify traffic.
+#
+# Storage scoping (per ADR-0002 + chief-architect review 2026-04-26):
+#   - Parameters are scoped per CLASS (this file).
+#   - Rolling-window history is scoped per SYMBOL (apps/classification/app/state.py).
+#     Multiple symbols in the same class share parameter values but keep
+#     their own ECDF reference distributions. Pooling history across symbols
+#     within a class is OUT OF SCOPE.
+#
+# Calibration status (D values):
+#   D values below are placeholders matched to operator + /trader intuition.
+#   None have been derived from rolling-IQR distributions on real data.
+#   See apps/classification/LIMITATIONS.md #6. Calibration is /trader +
+#   /statistician work.
+#
+# Reload semantics:
+#   Read once at classifier startup. Changes require process restart.
+#   Hot-reload is Phase-2 work, not implemented.
+#
+# Audit trail:
+#   git history. PRs against this file are the operational approval gate
+#   for new indicator classes (trading-risk decision per /trader).
+
+classes:
+  # CBOE equity vol indices. Same publication cadence (intraday + daily
+  # settle), same level range, same pct_change deviation_kind. Tuning N or D
+  # for one updates all four.
+  equity_vol_index:
+    source_category: MARKET_DATA
+    N: 252
+    D: 0.5
+    deviation_kind: pct_change
+    expected_frequency_seconds: 86400
+
+  # CBOE commodity / FX vol indices. Same structure as equity_vol_index but
+  # different scale floor (oil supply shocks produce wider tails). EVZ may
+  # need to split off into fx_vol_index once data justifies it (see /trader
+  # caveat in session-notes 2026-04-26).
+  commodity_vol_index:
+    source_category: MARKET_DATA
+    N: 252
+    D: 1.0
+    deviation_kind: pct_change
+    expected_frequency_seconds: 86400
+
+  # FRED-published US inflation YoY series. Monthly, surprise-based
+  # (actual minus consensus). Four members share identical calibration —
+  # this is the cleanest dedup case.
+  us_inflation_yoy:
+    source_category: MACROECONOMIC
+    N: 60
+    D: 0.1
+    deviation_kind: surprise_yoy
+    expected_frequency_seconds: 2592000
+
+  # BLS weekly labor releases. Initial and continued claims have correlated
+  # but distinct signals; same calibration shape.
+  us_labor_weekly:
+    source_category: MACROECONOMIC
+    N: 156
+    D: 0.15
+    deviation_kind: surprise_yoy
+    expected_frequency_seconds: 604800
+
+symbols:
+  # equity_vol_index — 4 members
+  VIX:
+    class: equity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: VIXCLS
+      verified: true
+  VVIX:
+    class: equity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: VVIXCLS
+      verified: false
+  VXN:
+    class: equity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: VXNCLS
+      verified: false
+  RVX:
+    class: equity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: RVXCLS
+      verified: false
+
+  # commodity_vol_index — 3 members
+  OVX:
+    class: commodity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: OVXCLS
+      verified: true
+  GVZ:
+    class: commodity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: GVZCLS
+      verified: false
+  EVZ:
+    class: commodity_vol_index
+    bootstrap:
+      provider: fred
+      series_id: EVZCLS
+      verified: false
+
+  # us_inflation_yoy — 4 members
+  CPI_YOY:
+    class: us_inflation_yoy
+    bootstrap:
+      provider: fred
+      series_id: CPIAUCSL
+      derive: pct_change_yoy
+      verified: true
+  CORE_CPI_YOY:
+    class: us_inflation_yoy
+    bootstrap:
+      provider: fred
+      series_id: CPILFESL
+      derive: pct_change_yoy
+      verified: false
+  PCE_YOY:
+    class: us_inflation_yoy
+    bootstrap:
+      provider: fred
+      series_id: PCEPI
+      derive: pct_change_yoy
+      verified: false
+  CORE_PCE_YOY:
+    class: us_inflation_yoy
+    bootstrap:
+      provider: fred
+      series_id: PCEPILFE
+      derive: pct_change_yoy
+      verified: false
+
+  # us_labor_weekly — 2 members
+  INITIAL_CLAIMS:
+    class: us_labor_weekly
+    bootstrap:
+      provider: fred
+      series_id: ICSA
+      verified: true
+  CONTINUED_CLAIMS:
+    class: us_labor_weekly
+    bootstrap:
+      provider: fred
+      series_id: CCSA
+      verified: false

@@ -3,7 +3,7 @@
 - **Status:** Accepted (design locked; implementation deferred to `/chief-architect` engagement)
 - **Date:** 2026-04-18
 - **Deciders:** Radu Pop
-- **Supersedes:** —
+- **Supersedes:** ADR-0001 Decision 2 (parameters travel in the request payload)
 - **Superseded by:** —
 - **Relates to:** ADR-0001 (per-indicator tuning parameters)
 
@@ -73,28 +73,41 @@ constant.
 **GEOPOLITICAL stays out.** EVENT_ASSESSMENT via LLM, severity not derived
 from a statistical distribution, different oracle class entirely.
 
-### 2. Two per-class parameters, not one
+### 2. Per-class registry parameters
 
-Per-indicator-class registry entries carry two parameters:
+Per-indicator-class registry entries carry three parameters:
 
-- **`N`** — history-window length.
-- **`D`** — minimum-informative-dispersion floor. When rolling dispersion
-  (IQR or std) of the history falls below `D`, the strategy emits a
-  degraded-confidence signal (CLS-004 fallback shape) with
-  `computed_metrics.dispersion_below_floor = true`, instead of inflating a
-  modest move to p95 off a flat history. Guards quiet-regime false-highs
-  (the OVX pathology).
+- **`N`** — history-window length. Controls how many past `|deviation|`
+  values the ECDF ranks against. Longer windows are more stable but slower
+  to adapt to regime shifts.
+- **`D`** — minimum-informative-dispersion floor. When rolling IQR of the
+  history falls below `D`, the strategy emits a CLS-009 degraded-confidence
+  signal with `computed_metrics.dispersion_below_floor = true`, instead of
+  inflating a modest move to p95 off a flat history. Guards quiet-regime
+  false-highs (the OVX pathology).
+- **`expected_frequency_seconds`** — the normal update cadence for this
+  indicator class (e.g. 86400 for daily, 2592000 for monthly). Used by the
+  Python classifier to compute `temporal_relevance` via exponential decay,
+  and by the .NET ingestion job to set staleness alert thresholds. Moving
+  this from request payload (ADR-0001 Decision 2) to the registry removes
+  the caller as a trust boundary for calibration data.
 
 One per-class parameter (`N` alone) is insufficient — `/trader` rejected
 this explicitly. `D` is the minimum honest answer for the
-non-stationarity / event-clustering gap.
+non-stationarity / event-clustering gap. `expected_frequency_seconds`
+supersedes ADR-0001 Decision 2.
 
 ### 3. Closed-universe indicator registry
 
 The classifier does not own the indicator catalogue. A shared registry
-maps `symbol → { indicator_class, N, D, deviation_kind }`. Approvals
-gate additions (trader-reviewed). Unknown indicators trigger the CLS-004
-degraded-confidence fallback rather than silent zeros.
+maps `symbol → { indicator_class, N, D, deviation_kind, expected_frequency_seconds }`.
+Approvals gate additions (trader-reviewed). Unknown indicators trigger the
+CLS-009 degraded-confidence fallback rather than silent zeros.
+
+Registry ownership, file format, and reload semantics are a `/chief-architect`
+decision (deferred). The five rationale properties (closed-universe safety,
+calibration per class, shared .NET/Python contract, git audit trail,
+operational approval gate) are documented in the Consequences section below.
 
 ### 4. Backtest harness — Layer A
 
@@ -182,13 +195,10 @@ closed-universe constraint at all) rests on five properties:
   alternatives — accept-everything-with-defaults (silent miscalibration)
   or hard-coded allow-list in code (which *is* a registry, just with
   worse ergonomics) — are either unsafe or no different in substance.
-- **Calibration per class, not per symbol.** Pooling `|deviation|`
-  across related symbols requires a `symbol → class → parameters`
-  lookup. Without the indirection, either every symbol carries its
-  own parameter row (duplication; `/trader` called out that VIX/VVIX
-  and CPI/PCE each measure genuinely different things) or class
-  membership is inferred from symbol format (fragile, breaks on any
-  naming deviation).
+* **Calibration per class, not per symbol:**
+  * Parameters are scoped per class. N, D, deviation_kind, expected_frequency_seconds live in the registry keyed by indicator class. Multiple symbols in the same class share parameter values, eliminating duplication when tuning.
+  * Rolling-window history is scoped per symbol. Each symbol maintains its own ECDF reference distribution. Pooling history across symbols within a class is out of scope and would require a per-class exchangeability argument.
+
 - **Shared contract between .NET ingestion and Python classifier.**
   The registry is the single source of truth for the .NET-side
   WebSocket subscription list and the Python-side calibration

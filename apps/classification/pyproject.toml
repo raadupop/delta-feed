@@ -29,13 +29,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests intentionally use literal constants for expected values — that is the test.
 "tests/**/*.py" = ["PLR2004", "PLR0911", "PLR0912", "PLR0915"]
-"main.py" = ["PLR0912", "PLR0915"]
-# TODO(ADR-0001): remove these exemptions in Phase B together with the
-# module-level `_TANH_SCALE` / `_EXPECTED_FREQUENCY_SECONDS` constants they
-# cover. The ADR is the authoritative tracker; this entry is the concrete
-# waiver so the fitness suite is green today without hiding the debt.
-"app/strategies/market_data.py" = ["PLR2004"]
-"app/strategies/macroeconomic.py" = ["PLR2004"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -111,9 +104,12 @@ forbidden_modules = [
 name = "layered dependencies"
 type = "layers"
 layers = [
-    "app.routing",
+    "app.routing | app.bootstrap",
     "app.strategies",
-    "app.state | app.models | app.config",
+    "app.math",
+    "app.state",
+    "app.config",
+    "app.registry | app.models",
 ]
 
 [tool.vulture]

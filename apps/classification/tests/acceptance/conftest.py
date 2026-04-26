@@ -17,6 +17,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from app.config import registry
 from app.state import RollingWindow, state
 from main import app
 
@@ -40,23 +41,30 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture(autouse=True)
 def reset_state() -> Iterator[None]:
     """Clear windows between tests, keep bootstrap-ready flag."""
-    state.market_data_history.clear()
-    state.macro_surprise_histories.clear()
+    state.windows.clear()
     state.is_ready = True
     yield
-    state.market_data_history.clear()
-    state.macro_surprise_histories.clear()
+    state.windows.clear()
+
+
+def _seed_window(symbol: str, values: list[float], last_update_iso: str) -> None:
+    """Seed a rolling window from registry-defined indicator class.
+
+    The window's deque is sized from `IndicatorClass.N` via RollingWindow.__post_init__,
+    so callers don't have to know N — they only provide the seed values they
+    have on hand.
+    """
+    entry = registry.get_symbol(symbol)
+    state.windows[symbol] = RollingWindow(
+        indicator_class=entry.indicator_class,
+        values=deque(values),
+        last_update=datetime.fromisoformat(last_update_iso),
+    )
 
 
 def seed_market_data_window(symbol: str, values: list[float], last_update_iso: str) -> None:
-    state.market_data_history[symbol] = RollingWindow(
-        values=deque(values, maxlen=20),
-        last_update=datetime.fromisoformat(last_update_iso),
-    )
+    _seed_window(symbol, values, last_update_iso)
 
 
 def seed_macro_window(indicator: str, values: list[float], last_update_iso: str) -> None:
-    state.macro_surprise_histories[indicator] = RollingWindow(
-        values=deque(values, maxlen=30),
-        last_update=datetime.fromisoformat(last_update_iso),
-    )
+    _seed_window(indicator, values, last_update_iso)

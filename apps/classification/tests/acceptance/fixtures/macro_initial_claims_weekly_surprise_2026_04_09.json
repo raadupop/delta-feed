@@ -42,8 +42,7 @@
     "temporal_relevance_max": 0.50,
     "rationale": "SRS CLS-001 ECDF: |deviation|=|219-210|=9K. Count of historical surprises ≤ 9K in 5-week window [17,5,2,1,10]: 3 out of 5 (1,2,5 are ≤ 9), so ecdf_rank=3, severity=3/5=0.60. This is an above-median but not extreme surprise for this series. Current tanh (~0.43) undershoots. FREQUENCY BUG: last_update is 21 days before signal. Correct 7-day expected_freq gives temporal_relevance within [0.10, 0.50]; buggy 30-day gives 1.0 (exceeds 0.50 max → xfail)."
   },
-  "xfail": {
-    "reason": "ADR-0001 — macroeconomic.py uses _EXPECTED_FREQUENCY_SECONDS = 2592000 (30 days). For this weekly indicator with a 21-day gap since last_update, temporal_relevance should be exp(-(21d-7d)/7d) = exp(-2) = 0.14. The buggy 30-day constant produces exp(-max(0, 21d-30d)/30d) = 1.0, which exceeds temporal_relevance_max of 0.50. Phase B sources expected_frequency_seconds from the request payload per indicator.",
-    "strict": true
+  "xfail_resolved": {
+    "resolved_in": "ADR-0001 Phase B — expected_frequency_seconds is now sourced from the indicator class (`infra/registry.yaml`). INITIAL_CLAIMS class `us_labor_weekly` carries expected_frequency_seconds=604800 (7 days), so the 21-day staleness produces temporal_relevance ≈ exp(-(21d-7d)/7d) = 0.14, inside the [0.10, 0.50] band."
   }
 }

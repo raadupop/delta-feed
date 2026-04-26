@@ -1,10 +1,10 @@
 # ADR-0001: Tuning parameters live per-indicator, sourced from the request
 
-- **Status:** Accepted (harness installed) — implementation deferred to ADR-0002 (Phase B)
+- **Status:** Superseded — Decision 2 (parameters travel in the request payload) superseded by [ADR-0002](0002-ecdf-severity-and-backtest-harness.md) Decisions 2 and 3 (registry-governed calibration; request carries indicator identity only). Decisions 1, 3, 4, 5 remain in force.
 - **Date:** 2026-04-15
 - **Deciders:** Radu Pop
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** ADR-0002 Decision 2 (registry owns expected_frequency_seconds; request payload carries indicator identity only)
 
 ## Context
 

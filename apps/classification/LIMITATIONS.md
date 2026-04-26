@@ -4,18 +4,11 @@ Production-critical weaknesses tracked here. Each entry includes the risk and wh
 
 ---
 
-## 1. Fixed `_TANH_SCALE` calibration
+## 1. ~~Fixed `_TANH_SCALE` calibration~~ — ADDRESSED
 
 **Affects:** MARKET_DATA, MACROECONOMIC (and future CROSS_ASSET_FLOW) strategies
 
-**Risk:** The `_TANH_SCALE` constant that maps raw scores to [0, 1] severity is fitted to 2 test events per strategy. This is curve-fitting, not calibration. A poorly chosen scale compresses or stretches the severity range, weakening downstream composite scoring (CLS-002).
-
-**Current state:** MARKET_DATA uses 20.0, MACROECONOMIC uses 3.0 — both derived from back-of-envelope estimates and 2 historical anchors.
-
-**Production fix:**
-- Calibrate against 20+ historical releases per indicator with known market reactions
-- Backtest end-to-end through CLS-002 composite scoring to validate that component severity produces correct composite behavior
-- Consider adaptive scaling: derive scale from the data itself (e.g., 95th percentile of historical values), so it adjusts as market regimes change
+**Status:** Addressed by ADR-0001 Phase B + ADR-0002. Severity is now an ECDF rank against the per-symbol rolling history; there is no `_TANH_SCALE` constant. Calibration knobs (`N`, `D`) live in [`infra/registry.yaml`](../../infra/registry.yaml) per indicator class — paper-computable per indicator without a magic scale constant. Empirical calibration of `N`/`D` itself is tracked separately as #6.
 
 ---
 
@@ -23,33 +16,18 @@ Production-critical weaknesses tracked here. Each entry includes the risk and wh
 
 **Affects:** All strategies using rolling windows (MARKET_DATA, MACROECONOMIC, CROSS_ASSET_FLOW)
 
-**Status:** Addressed. Certainty is now split into two independently computed dimensions:
+**Status:** Addressed. Certainty is split into two independently computed dimensions:
 - `source_reliability`: window fullness (how many values) — the original certainty formula
-- `temporal_relevance`: exponential decay based on time since last update, relative to the expected update frequency (3 calendar days for MARKET_DATA, 30 days for MACROECONOMIC)
+- `temporal_relevance`: exponential decay based on time since last update, relative to the indicator class's `expected_frequency_seconds` (sourced from [`infra/registry.yaml`](../../infra/registry.yaml) per ADR-0001 Phase B)
 - `certainty = source_reliability × temporal_relevance`
 
-The `RollingWindow` class in `app/state.py` tracks `last_update` alongside values. The `/health` endpoint exposes per-window staleness (last update timestamp + seconds since).
-
-**Remaining considerations:**
-- Expected frequencies are module-level constants per strategy; future indicators with different release cadences (e.g., weekly jobless claims) will need per-indicator frequency configuration
-- CROSS_ASSET_FLOW strategy (not yet implemented) will follow the same pattern when built
+The `RollingWindow` class in `app/state.py` tracks `last_update` alongside values. The `/health` endpoint exposes per-window staleness (last update timestamp + seconds since). Different indicator cadences (daily vol indices, monthly CPI, weekly claims) are now correctly distinguished by class — weekly INITIAL_CLAIMS uses 7-day expected frequency rather than the previous shared 30-day constant.
 
 ---
 
-## 3. Fixed `tanh` curve for severity mapping
+## 3. ~~Fixed `tanh` curve for severity mapping~~ — ADDRESSED
 
-**Status:** PLANNED — remediation scoped in [ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md). Pivot to ECDF / percentile rank with per-class `N` (history length) + `D` (minimum-informative-dispersion floor). Implementation deferred to `/chief-architect` engagement.
-
-**Affects:** MARKET_DATA, MACROECONOMIC (and future CROSS_ASSET_FLOW) strategies
-
-**Risk:** `tanh(value / scale)` assumes a fixed S-curve shape for mapping raw scores to severity. The curve shape never changes — it doesn't adapt to shifting market regimes, and the scale constant bakes in a static judgment about what counts as "severe." Industry-grade systems (Bloomberg, Aladdin) either pass raw values through and let downstream systems interpret, or use continuously recalibrated models.
-
-**Current state:** All RULE_BASED strategies use `tanh` with a hardcoded scale constant.
-
-**Production alternatives (by increasing sophistication):**
-- **Empirical CDF:** Rank the current value against the full window history. "This is the 95th percentile of surprises" → severity 0.95. No assumed curve shape, no tuning constant, adapts automatically as the distribution shifts. Simplest upgrade from tanh.
-- **Pass raw scores to composite:** Remove severity mapping from the classifier entirely. Let the .NET composite layer (CLS-002) decide how to weight raw surprise magnitudes alongside other signals — it has more context.
-- **Learned mapping:** Fit severity from historical data (surprise magnitude vs observed market reaction). Requires labeled data: "this surprise produced this market impact." Most accurate, highest data requirement.
+**Status:** Addressed by ADR-0002. Severity is now `ecdf_rank(|deviation|)` against the per-symbol rolling history, not `tanh(value / scale)`. No assumed curve shape, no tuning constant, adapts as the distribution shifts. Calibration of the per-class `N` (history length) and `D` (dispersion floor) is tracked separately as #6.
 
 ---
 
@@ -83,3 +61,49 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 1. **Tighten CLS-001 with a normative formula.** Landed in [SRS v2.3.2](../../doc/srs/INVEX-SRS-v2.3.2.md): ECDF / percentile rank with two per-class parameters (`N`, `D`) makes severity paper-computable per indicator without a magic scale constant. The formula is inline in the revised CLS-001, matching the CLS-002 / CLS-006 pattern. Companion SRS changes are CLS-009 (RULE_BASED degraded-confidence fallback for dispersion-floor trips and unknown indicators; distinct from CLS-004, which is AI-response-specific) and eight new §3 Definitions entries anchoring the vocabulary including the indicator registry. SIG-001 is preserved verbatim; the registry is not a numbered sub-requirement. See [ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md); the earlier [CLS-001 annex stub](doc/adr/srs-annex-cls-001-severity-formula.md) is superseded by the SRS body.
 2. **Add a backtest harness layer with a market-reality oracle.** Acceptance suite asserts the SRS contract (formula-based, deterministic). Backtest Layer A asserts that the classifier's output is consistent with what IV actually did post-event (binary direction + magnitude bucket). Different oracle, different bug class, no duplication. Documented in [HARNESS.md](HARNESS.md).
+
+---
+
+## 6. Registry parameters (`N`, `D`) are uncalibrated placeholders
+
+**Status:** PLANNED — calibration is `/trader` + `/statistician` work, separate from registry mechanics.
+
+**Affects:** All RULE_BASED strategies once ECDF lands ([ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md)).
+
+**Risk:** [`infra/registry.yaml`](../../infra/registry.yaml) ships with `N` and `D` values matched to operator + `/trader` intuition, not derived from real data. Specifically:
+
+- **`N`** values (252 / 60 / 156) are conventional choices (one trading year, five years of monthly inflation, three years of weekly claims). They are defensible defaults but have not been validated against ECDF rank stability on the actual symbols.
+- **`D`** values (0.5 / 1.0 / 0.1 / 0.15) are placeholder dispersion floors. None are derived from rolling-IQR distributions on real history. Until calibrated, the CLS-009 dispersion-floor guard fires at thresholds that may be too loose (lets quiet-regime false-highs through) or too tight (degrades confidence on legitimate signals).
+
+**Current state:** Registry exists with placeholder values. ECDF code that consumes them is unimplemented (build-step pending).
+
+**Production fix:**
+
+1. Pull 5+ years of history per symbol (FRED for inflation/labor, CBOE/Twelve Data for vol indices).
+2. Compute rolling-IQR distribution per symbol with the proposed `N`.
+3. Set `D` per class at the empirical 5th-percentile of the IQR distribution (or whatever percentile `/statistician` defends).
+4. Validate `N` by re-running ECDF on historical events and checking that severity ranks correlate with `/trader` intuition for known events (e.g., COVID first spike should rank > p95).
+5. Update `infra/registry.yaml` with calibrated values, document the calibration commit in this entry.
+
+**Reversibility:** Trivial. `git revert` on the registry change. CoBW: bounded — only affects severity scores between deploy and recalibration.
+
+---
+
+## 7. Multi-symbol-per-class is structurally untested
+
+**Status:** ACCEPTED — covered by ADR-0002 design; will be exercised when ECDF lands.
+
+**Affects:** All classes in [`infra/registry.yaml`](../../infra/registry.yaml) with multiple symbols (`equity_vol_index`, `commodity_vol_index`, `us_inflation_yoy`, `us_labor_weekly`).
+
+**Risk:** Current acceptance fixtures cover one symbol per class (`VIX`, `OVX`, `CPI_YOY`, `INITIAL_CLAIMS`). The dedup justification in ADR-0002 assumes that tuning `N` or `D` for a class behaves correctly across all member symbols. Until a fixture exercises a second member of any class, this is asserted rather than tested.
+
+**Current state:** Registry declares 13 symbols across 4 classes. Acceptance fixtures exercise 4 of them.
+
+**Production fix:** Add at least one fixture for a second member of each multi-symbol class:
+
+- `equity_vol_index`: a VVIX or VXN anchor (e.g., VVIX during 2018 Volmageddon)
+- `commodity_vol_index`: a GVZ anchor (e.g., gold spike on geopolitical event)
+- `us_inflation_yoy`: a CORE_CPI_YOY anchor (e.g., 2022 core inflation peak)
+- `us_labor_weekly`: a CONTINUED_CLAIMS anchor (e.g., 2020 COVID labor shock)
+
+`/trader` curates dates per `ANCHORS.md`, `/statistician` reviews that the resulting severity ranks are consistent with same-class siblings under shared parameters.

@@ -29,7 +29,6 @@
     "expected_score": 1.00,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
     "rationale_pending_trader": "SRS CLS-001 ECDF: VIX median=21.055, |deviation|=|54.46-21.055|=33.405. All 20 historical deviations are ≤ 33.405 (window spans 13.68-41.94), so ecdf_rank=20, severity=20/20=1.00. This exemplifies window absorption: VIX absolute move is large (54.46 is peak COVID), but the window already absorbed the Feb 24 spike and the ramp, so z-score only 2.75. Yet ECDF still ranks it 1.00 because 33.4 exceeds every deviation in the window. This is the correct behaviour: within the crisis regime, this is the most extreme reading. Tanh gives 0.14 (understates due to limited z-score within elevated window)."
   }

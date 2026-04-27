@@ -7,7 +7,7 @@
 #   - .NET ingestion job (future iterations 1+) — WebSocket subscription
 #     list, REST bootstrap pulls, staleness alert thresholds.
 #
-# Schema (governed by ADR-0002, amended by ADR-0003):
+# Schema (governed by ADR-0002, including its 2026-04-27 amendment):
 #
 #   classes:
 #     <class_name>:
@@ -20,7 +20,8 @@
 #                                   .NET staleness thresholds)
 #
 #   The earlier `D` (minimum-informative-dispersion floor) parameter was
-#   removed in ADR-0003. The CLS-009 first guard is now a global window-
+#   removed in the ADR-0002 2026-04-27 amendment. The CLS-009 first guard
+#   is now a global window-
 #   degeneracy check on the history itself, not a per-class threshold.
 #
 #   symbols:
@@ -72,6 +73,7 @@ classes:
     N: 504
     deviation_kind: pct_change
     expected_frequency_seconds: 86400
+    cadence: business_day
 
   # CBOE commodity / FX vol indices. Same structure as equity_vol_index but
   # different scale floor (oil supply shocks produce wider tails). EVZ may
@@ -82,6 +84,7 @@ classes:
     N: 504
     deviation_kind: pct_change
     expected_frequency_seconds: 86400
+    cadence: business_day
 
   # FRED-published US inflation YoY series. Monthly, surprise-based
   # (actual minus consensus). Four members share identical calibration —

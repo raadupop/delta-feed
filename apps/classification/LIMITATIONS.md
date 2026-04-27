@@ -8,7 +8,7 @@ Production-critical weaknesses tracked here. Each entry includes the risk and wh
 
 **Affects:** MARKET_DATA, MACROECONOMIC (and future CROSS_ASSET_FLOW) strategies
 
-**Status:** Addressed by ADR-0001 Phase B + ADR-0002. Severity is now an ECDF rank against the per-symbol rolling history; there is no `_TANH_SCALE` constant. The remaining per-class calibration knob is `N` (history length) in [`infra/registry.yaml`](../../infra/registry.yaml), paper-computable per indicator without a magic scale constant. The earlier `D` (minimum-informative-dispersion floor) was removed by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md). Empirical calibration of `N` itself is tracked separately as #6.
+**Status:** Addressed by ADR-0001 Phase B + ADR-0002. Severity is now an ECDF rank against the per-symbol rolling history; there is no `_TANH_SCALE` constant. The remaining per-class calibration knob is `N` (history length) in [`infra/registry.yaml`](../../infra/registry.yaml), paper-computable per indicator without a magic scale constant. The earlier `D` (minimum-informative-dispersion floor) was removed by the ADR-0002 2026-04-27 amendment. Empirical calibration of `N` itself is tracked separately as #6.
 
 ---
 
@@ -17,9 +17,9 @@ Production-critical weaknesses tracked here. Each entry includes the risk and wh
 **Affects:** All strategies using rolling windows (MARKET_DATA, MACROECONOMIC, CROSS_ASSET_FLOW)
 
 **Status:** Addressed. Certainty is split into two independently computed dimensions:
-- `source_reliability`: window fullness (how many values) — the original certainty formula
+- `history_sufficiency`: window fullness (`min(1.0, len(history)/N)`) — the original certainty formula, renamed honestly per ADR-0004
 - `temporal_relevance`: exponential decay based on time since last update, relative to the indicator class's `expected_frequency_seconds` (sourced from [`infra/registry.yaml`](../../infra/registry.yaml) per ADR-0001 Phase B)
-- `certainty = source_reliability × temporal_relevance`
+- `certainty = history_sufficiency × temporal_relevance`
 
 The `RollingWindow` class in `app/state.py` tracks `last_update` alongside values. The `/health` endpoint exposes per-window staleness (last update timestamp + seconds since). Different indicator cadences (daily vol indices, monthly CPI, weekly claims) are now correctly distinguished by class — weekly INITIAL_CLAIMS uses 7-day expected frequency rather than the previous shared 30-day constant.
 
@@ -27,7 +27,7 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 ## 3. ~~Fixed `tanh` curve for severity mapping~~ — ADDRESSED
 
-**Status:** Addressed by ADR-0002. Severity is now `ecdf_rank(|deviation|)` against the per-symbol rolling history, not `tanh(value / scale)`. No assumed curve shape, no tuning constant, adapts as the distribution shifts. Calibration of the per-class `N` (history length) is tracked separately as #6. The earlier `D` (minimum-informative-dispersion floor) was removed by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md) and replaced with a global window-degeneracy check.
+**Status:** Addressed by ADR-0002. Severity is now `ecdf_rank(|deviation|)` against the per-symbol rolling history, not `tanh(value / scale)`. No assumed curve shape, no tuning constant, adapts as the distribution shifts. Calibration of the per-class `N` (history length) is tracked separately as #6. The earlier `D` (minimum-informative-dispersion floor) was removed by the ADR-0002 2026-04-27 amendment and replaced with a global window-degeneracy check.
 
 ---
 
@@ -66,7 +66,7 @@ The `RollingWindow` class in `app/state.py` tracks `last_update` alongside value
 
 ## 6. Registry parameter `N` is operator-set, not anchor-validated
 
-**Status:** PLANNED — `N` calibration via trader sanity gate is `/trader` + `/statistician` work, separate from registry mechanics. The earlier `D` half of this limitation was removed entirely by [ADR-0003](doc/adr/0003-window-degeneracy-guard.md): the per-class dispersion floor is replaced by a global window-degeneracy check (no calibration ever needed).
+**Status:** PLANNED — `N` calibration via trader sanity gate is `/trader` + `/statistician` work, separate from registry mechanics. The earlier `D` half of this limitation was removed entirely by the ADR-0002 2026-04-27 amendment: the per-class dispersion floor is replaced by a global window-degeneracy check (no calibration ever needed).
 
 **Affects:** All RULE_BASED strategies once ECDF lands ([ADR-0002](doc/adr/0002-ecdf-severity-and-backtest-harness.md)).
 

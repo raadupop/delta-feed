@@ -1,0 +1,36 @@
+{
+  "_comment": "Known false positive — 2017 low-vol regime. VIX printed 9.19 on 2017-10-05 against a 20-trading-day window also clustered in 9.45–12.12 (median 10.16). Trader truth: this is structural carry-trade complacency, not a tradeable event — the same regime that preceded Volmageddon four months later. ECDF rank-within-quiet-window pathology emits 0.90 because the window is so tight that any drift looks unusual. xfail(strict=True) pins the gap; when a noise-zone floor lands and severity drops into the trader band, the test flips and forces an SRS/ADR reckoning.",
+  "status": "SOURCED — PENDING /trader signoff",
+  "source": {
+    "provider": "FRED",
+    "series_id": "VIXCLS",
+    "description": "CBOE Volatility Index: VIX (daily close)",
+    "retrieved_at": "2026-04-27T00:00:00Z",
+    "url": "https://fred.stlouisfed.org/series/VIXCLS",
+    "window_range": "2017-09-07 .. 2017-10-04 (last 20 trading-day closes before event)",
+    "current_value_date": "2017-10-05"
+  },
+  "symbol": "VIX",
+  "last_update": "2017-10-04T00:00:00+00:00",
+  "window": [
+    11.55, 12.12, 10.73, 10.58, 10.50, 10.44, 10.17, 10.15, 10.18, 9.78,
+    9.67, 9.59, 10.21, 10.17, 9.87, 9.55, 9.51, 9.45, 9.51, 9.63
+  ],
+  "request": {
+    "source_category": "MARKET_DATA",
+    "payload_type": "STRUCTURED",
+    "structured_payload": {
+      "symbol": "VIX",
+      "current_value": 9.19,
+      "timestamp": "2017-10-05T00:00:00Z"
+    }
+  },
+  "expected_band": {
+    "score_min": 0.0,
+    "score_max": 0.20,
+    "score_type": "ANOMALY_DETECTION",
+    "classification_method": "RULE_BASED",
+    "temporal_relevance_min": 0.95,
+    "rationale_pending_trader": "Trader-band, not SRS-formula-band. Window median ≈ 10.16, |deviation|=|9.19-10.16|=0.97. 18 of 20 history |deviations from median| are ≤ 0.97 → SRS CLS-001 ECDF rank = 0.90. But this is a known false positive: VIX at structural lows in 2017's complacency regime — no tradeable signal. A straddle bought on this severity bleeds theta and dies. Trader-defensible severity ≤ 0.20 reflects the regime: 'this is the floor of the floor; nothing happens here.' The test FAILS today and stays failing until a noise-zone gate (absolute-magnitude / vol-of-vol / window-spread filter) lands in SRS CLS-001 — by design."
+  }
+}

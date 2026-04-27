@@ -19,6 +19,7 @@ DeviationKind = Literal["pct_change", "surprise_yoy", "corr_delta"]
 Provider = Literal["fred", "finnhub", "twelve_data"]
 DeriveKind = Literal["pct_change_yoy", "none"]
 SourceCategory = Literal["MARKET_DATA", "MACROECONOMIC", "CROSS_ASSET_FLOW", "GEOPOLITICAL"]
+Cadence = Literal["business_day", "calendar_day"]
 
 
 class IndicatorClass(BaseModel):
@@ -30,6 +31,7 @@ class IndicatorClass(BaseModel):
     N: int = Field(gt=0)
     deviation_kind: DeviationKind
     expected_frequency_seconds: int = Field(gt=0)
+    cadence: Cadence = "calendar_day"
 
 
 class BootstrapSpec(BaseModel):

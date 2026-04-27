@@ -39,3 +39,4 @@ Constant external dependency across all six .NET iterations. Lives in `apps/clas
 - API acceptance tests are strictly black-box (EVO-001)
 - Structural tests are iteration-specific
 - The agent context (this file + per-component `AGENTS.md`) is a controlled variable (ACX-001, ACX-002)
+- Python naming: see [doc/conventions/python-naming.md](doc/conventions/python-naming.md). Functions and modules describe their *output*, not the discriminator that dispatched to them.

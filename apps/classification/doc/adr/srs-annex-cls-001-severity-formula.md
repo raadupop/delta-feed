@@ -52,7 +52,7 @@ Let `distinct(H)` be the count of unique values in the history window
 after rounding to 4 decimals.
 
 ```
-if distinct(H) < k_min:        # k_min = 10, global (ADR-0003)
+if distinct(H) < k_min:        # k_min = 10, global (ADR-0002, 2026-04-27 amendment)
     classification_method = RULE_BASED
     score                 = ecdf_rank(|deviation|) / N        # computed as usual
     computed_metrics.window_degenerate = true
@@ -61,9 +61,9 @@ if distinct(H) < k_min:        # k_min = 10, global (ADR-0003)
 
 Rationale: a percentile rank over fewer than 10 distinct values has
 resolution coarser than 10 percentage points; below that the rank is not
-informative regardless of the underlying distribution. ADR-0003
-supersedes the per-class IQR floor (`D`) that the earlier draft of this
-annex described. The new check is sample-size independent and
+informative regardless of the underlying distribution. The ADR-0002
+2026-04-27 amendment supersedes the per-class IQR floor (`D`) that the
+earlier draft of this annex described. The new check is sample-size independent and
 distribution-free, so it works at the sample sizes available for monthly
 and weekly series, where a calibrated `D` could not be defended.
 

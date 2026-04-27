@@ -43,7 +43,7 @@ axis the bug lives on.
    — set by the .NET ingestion job that owns indicator identity and cadence.
 3. **Unknown indicators are first-class at runtime.** The classifier spins up
    a fresh rolling window on first observation of a new `indicator_id` and
-   reflects window-emptiness in `temporal_relevance` / `source_reliability`.
+   reflects window-emptiness in `temporal_relevance` / `history_sufficiency`.
    No hardcoded `dict[str, IndicatorParams]` in strategy modules.
 4. **Shared math is extracted.** `_compute_temporal_relevance` moves to
    `app/math/temporal.py` so both strategies consume one implementation.

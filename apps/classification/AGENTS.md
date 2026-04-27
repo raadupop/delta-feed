@@ -26,7 +26,7 @@ Payloads match the OpenAPI spec schemas: MarketDataPayload, MacroeconomicPayload
   "score": 0.82,
   "score_type": "ANOMALY_DETECTION | EVENT_ASSESSMENT",
   "certainty": 0.71,
-  "source_reliability": 0.90,
+  "history_sufficiency": 0.90,
   "temporal_relevance": 0.79,
   "event_taxonomy": "RATE_SURPRISE",
   "classification_method": "AI_MODEL | RULE_BASED",
@@ -43,8 +43,8 @@ Payloads match the OpenAPI spec schemas: MarketDataPayload, MacroeconomicPayload
 - `score_type`: discriminator telling the consumer what the score represents.
   - `ANOMALY_DETECTION`: statistical deviation from rolling baseline (z-score, surprise magnitude). Produced by MARKET_DATA, MACROECONOMIC, CROSS_ASSET_FLOW.
   - `EVENT_ASSESSMENT`: LLM-judged event impact. Produced by GEOPOLITICAL structured and unstructured.
-- `certainty`: 0.0–1.0. Combined certainty composed of two independent dimensions: source reliability (accuracy/trustworthiness of the source) and temporal relevance (whether the market has already priced this signal). Both quantified independently and combined (SRS CLS-001).
-- `source_reliability`: 0.0–1.0. Optional. Source reliability dimension of certainty, provided when computed independently.
+- `certainty`: 0.0–1.0. Combined certainty composed of two independent dimensions: history sufficiency (window fullness, `min(1.0, len(history)/N)`) and temporal relevance (whether the market has already priced this signal). Both quantified independently and combined (SRS CLS-001).
+- `history_sufficiency`: 0.0–1.0. Optional. Window-fullness dimension of certainty, provided when computed independently.
 - `temporal_relevance`: 0.0–1.0. Optional. Temporal relevance dimension — 1.0 means market has not yet absorbed the signal.
 - `event_taxonomy`: nullable. Not all strategies produce one.
 - `classification_method`: self-describing. AI_MODEL for LLM strategies, RULE_BASED for statistical.
@@ -167,6 +167,10 @@ Two per strategy. Each event is a JSON fixture under `tests/fixtures/`. Tests us
 - **RAG:** LangChain + ChromaDB
 - **Tests:** pytest + pytest-asyncio
 - **Bootstrap data:** Twelve Data REST + FRED API (fredapi)
+
+## Conventions
+
+- Naming: see [doc/conventions/python-naming.md](../../doc/conventions/python-naming.md). Functions and modules describe their *output*, not the discriminator that dispatched to them. Run the pre-edit self-check before introducing any new name.
 
 ## Build Order
 

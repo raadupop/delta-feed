@@ -29,7 +29,6 @@
     "expected_score": 0.85,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
     "rationale_pending_trader": "SRS CLS-001 ECDF: median(window)=54.075, |deviation|=|64.68-54.075|=10.605. Deviations of all 20 window values from median: 17 of 20 are ≤ 10.605, so ecdf_rank=17, severity=17/20=0.85. This is exact integer arithmetic — no tolerance needed, band is [0.85, 0.85]. Key teaching axis: despite the absolute move being large, the window was already elevated (pre-war tension kept OVX in the 50s for all of Jan-Feb 2026), meaning 3 historical deviations actually exceed the event deviation. The ECDF correctly captures this as high-but-not-extreme at 0.85. The current tanh implementation (~0.10) understates the event by ~8×. Contrast with market_data_ovx_aramco_attack_2019_09_16 (clean baseline). PENDING: /trader signoff on 0.85 band and geopolitical context."
   }

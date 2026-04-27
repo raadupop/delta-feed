@@ -107,6 +107,16 @@ components:
       minimum: 0.0
       maximum: 1.0
 
+    SignedUnitInterval:
+      type: number
+      minimum: -1.0
+      maximum: 1.0
+      description: |
+        Closed signed unit interval `[-1.0, +1.0]`. Used for `score` when
+        `score_type = ANOMALY_DETECTION` (SRS CLS-001 v2.3.3): magnitude is
+        the long-horizon ECDF rank, sign follows the SRS §3 sign convention.
+        Not used for certainty or for EVENT_ASSESSMENT scores.
+
     MarketDataPayload:
       type: object
       required: [symbol, current_value, timestamp]
@@ -211,15 +221,25 @@ components:
       additionalProperties: false
       properties:
         score:
-          $ref: "#/components/schemas/UnitInterval"
+          description: |
+            Classification score. Range and interpretation depend on score_type:
+              - ANOMALY_DETECTION (RULE_BASED strategies): signed long-horizon
+                ECDF rank in `[-1.0, +1.0]` (SRS CLS-001 v2.3.3, signed schema).
+                Sign follows the SRS §3 sign convention; magnitude is the
+                long-horizon ECDF rank.
+              - EVENT_ASSESSMENT (GEOPOLITICAL strategies, AI-judged):
+                non-negative impact score in `[0.0, +1.0]`.
+            The wider `[-1.0, +1.0]` range applies; producers of
+            EVENT_ASSESSMENT scores shall constrain the value to `[0.0, +1.0]`.
+          $ref: "#/components/schemas/SignedUnitInterval"
         score_type:
           $ref: "#/components/schemas/ScoreType"
         certainty:
           $ref: "#/components/schemas/UnitInterval"
-        source_reliability:
+        history_sufficiency:
           description: |
-            Source reliability dimension of certainty (accuracy / trustworthiness
-            of the source). Optional when not independently computed.
+            Window-fullness dimension of certainty: `min(1.0, len(history) / N)`.
+            Optional when not independently computed.
           oneOf:
             - $ref: "#/components/schemas/UnitInterval"
             - type: "null"

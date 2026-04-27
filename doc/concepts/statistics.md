@@ -112,16 +112,16 @@ Two ways to combine independent dimensions into one score.
 
 **Additive (weighted average):**
 ```
-certainty = 0.5 × source_reliability + 0.5 × temporal_relevance
+certainty = 0.5 × history_sufficiency + 0.5 × temporal_relevance
 ```
-- SR=1.0, TR=0.0 → certainty = 0.5 (one perfect dimension masks a zero)
+- HS=1.0, TR=0.0 → certainty = 0.5 (one perfect dimension masks a zero)
 - "At least one good dimension gives partial credit"
 
 **Multiplicative:**
 ```
-certainty = source_reliability × temporal_relevance
+certainty = history_sufficiency × temporal_relevance
 ```
-- SR=1.0, TR=0.0 → certainty = 0.0 (zero in any dimension kills the result)
+- HS=1.0, TR=0.0 → certainty = 0.0 (zero in any dimension kills the result)
 - "Both dimensions must be good for the result to be good"
 
 **When to use which:**
@@ -146,9 +146,9 @@ Reducing the value of something because of a condition (time, risk, quality).
 - **Source discount (INVEX d_c):** A composite score is discounted when expected data sources are missing — you have less information, so trust the result less
 - **Risk discount:** A trade with higher risk is "discounted" — you need a bigger expected return to justify it
 
-**In INVEX:** Temporal relevance IS a discount factor. It takes the "base certainty" (source reliability) and discounts it for staleness:
+**In INVEX:** Temporal relevance IS a discount factor. It takes the "base certainty" (history sufficiency) and discounts it for staleness:
 ```
-certainty = source_reliability × temporal_relevance(discount)
+certainty = history_sufficiency × temporal_relevance(discount)
 ```
 
 ---
@@ -430,7 +430,7 @@ A global check that the history window has enough distinct values for the ECDF r
 
 **The pathology.** Suppose OVX has been trading in a range of 22.0 to 22.3 for 60 days — flat regime. A modest move to 22.5 ranks above every one of the 60 history points → **ECDF rank = 1.0, severity = 1.0**. The classifier screams. The market yawns.
 
-**The guard (ADR-0003).** Compute the count of distinct values in the history window after rounding to 4 decimals. If that count is below a global threshold `k_min` (= 10), the history is declared degenerate:
+**The guard (ADR-0002, 2026-04-27 amendment).** Compute the count of distinct values in the history window after rounding to 4 decimals. If that count is below a global threshold `k_min` (= 10), the history is declared degenerate:
 
 - The classifier returns a **CLS-009 degraded-confidence response** instead of the raw ECDF severity.
 - `computed_metrics.window_degenerate = true` so the composite (CLS-002) can exclude it deterministically.

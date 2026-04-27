@@ -1,15 +1,18 @@
 # ADR-0002: ECDF severity mapping, two-parameter per-class calibration, and backtest harness layer
 
 - **Status:** Accepted (design locked; implementation deferred to `/chief-architect` engagement)
-- **Date:** 2026-04-18
+- **Date:** 2026-04-18 (original); amended 2026-04-27 (window-degeneracy guard)
 - **Deciders:** Radu Pop
 - **Supersedes:** ADR-0001 Decision 2 (parameters travel in the request payload)
-- **Superseded in part by:** [ADR-0003](0003-window-degeneracy-guard.md) — the
-  `D` (minimum-informative-dispersion floor) per-class registry parameter is
-  removed and replaced with a global window-degeneracy check. `N`,
-  `deviation_kind`, `expected_frequency_seconds`, and the rest of this ADR
-  are unaffected.
 - **Relates to:** ADR-0001 (per-indicator tuning parameters)
+
+> **2026-04-27 amendment.** The `D` (minimum-informative-dispersion floor)
+> parameter described in §2 was removed and replaced with a global
+> window-degeneracy guard. `D` was vestigial under ECDF: the dispersion
+> floor existed to stabilise the prior z-score severity formula, and ECDF
+> rank has no division-by-IQR pathology. The corrected design lives in
+> the §2 "Window-degeneracy guard" sub-bullet below; the rest of this ADR
+> stands.
 
 ## Context
 
@@ -79,32 +82,70 @@ from a statistical distribution, different oracle class entirely.
 
 ### 2. Per-class registry parameters
 
-Per-indicator-class registry entries carry three parameters:
+Per-indicator-class registry entries carry two parameters; a third
+degeneracy guard is global, not per-class:
 
 - **`N`** — history-window length. Controls how many past `|deviation|`
   values the ECDF ranks against. Longer windows are more stable but slower
   to adapt to regime shifts.
-- **`D`** — minimum-informative-dispersion floor. When rolling IQR of the
-  history falls below `D`, the strategy emits a CLS-009 degraded-confidence
-  signal with `computed_metrics.dispersion_below_floor = true`, instead of
-  inflating a modest move to p95 off a flat history. Guards quiet-regime
-  false-highs (the OVX pathology).
 - **`expected_frequency_seconds`** — the normal update cadence for this
   indicator class (e.g. 86400 for daily, 2592000 for monthly). Used by the
   Python classifier to compute `temporal_relevance` via exponential decay,
   and by the .NET ingestion job to set staleness alert thresholds. Moving
   this from request payload (ADR-0001 Decision 2) to the registry removes
   the caller as a trust boundary for calibration data.
+- **`deviation_kind`** — per-class data-shape parameter selecting which
+  deviation formula applies (`level_vs_median`, `surprise`, etc.).
+
+**Window-degeneracy guard (amended 2026-04-27, replaces the original `D`
+parameter).** CLS-009's first guard condition is a global window-
+degeneracy check, not a per-class dispersion threshold:
+
+```text
+is_window_degenerate(H) ≡ |{ round(v, 4) : v ∈ H }| < k_min
+```
+
+where `H` is the history window and `k_min = 10` is a single global
+constant. Properties:
+
+- **Distribution-free.** No assumption about the shape of `|deviation|`.
+- **Sample-size independent.** No empirical p5 to estimate; no
+  autocorrelation correction needed.
+- **First-principles constant.** A percentile rank over fewer than ten
+  distinct values has resolution coarser than `1/10 = 10pp`; below that
+  the rank is not informative regardless of distribution.
+- **Detects scale collapse.** A flat or near-flat window has few distinct
+  values, regardless of absolute scale.
+- **One global parameter, not per-class.** No calibration ever needed.
+
+The rounding to 4 decimals is defensive against float-noise spurious
+distinctness in possible future derived series; on the present sources
+(VIX/OVX 2dp, CPI YoY 1dp, claims integers) it is a no-op.
+
+Why this replaced `D`: `D` was carried over from the prior z-score
+severity model, where dividing by a small IQR inflated normal-day moves.
+ECDF rank does no such division — a tight-but-non-flat window simply
+produces compressed rank distances, which is correct behavior, not a
+bug. The only residual ECDF edge case is **insufficient distinct points
+to rank against**, which is a count problem, not a magnitude problem.
+Two specialists rejected `D` as specified: `/statistician` (per-class
+absolute `D` is undefendable at the sample sizes available — a defensible
+empirical p5 of the rolling-IQR distribution requires ≥ 200 non-
+overlapping IQR observations, unreachable for monthly series), and
+`/trader` ("minimum dispersion floor" is not a parameter anyone on a vol
+desk quotes or sizes a trade against). A scale-invariant ratio
+replacement (`IQR < α × median(|deviation|)`) was rejected as the
+interquartile coefficient of dispersion is bounded for typical financial
+series and cannot detect scale collapse.
 
 One per-class parameter (`N` alone) is insufficient — `/trader` rejected
-this explicitly. `D` is the minimum honest answer for the
-non-stationarity / event-clustering gap. `expected_frequency_seconds`
-supersedes ADR-0001 Decision 2.
+this explicitly. `expected_frequency_seconds` supersedes ADR-0001
+Decision 2.
 
 ### 3. Closed-universe indicator registry
 
 The classifier does not own the indicator catalogue. A shared registry
-maps `symbol → { indicator_class, N, D, deviation_kind, expected_frequency_seconds }`.
+maps `symbol → { indicator_class, N, deviation_kind, expected_frequency_seconds }`.
 Approvals gate additions (trader-reviewed). Unknown indicators trigger the
 CLS-009 degraded-confidence fallback rather than silent zeros.
 
@@ -141,7 +182,7 @@ and eight §3 Definitions entries added:
   severity ("severity is quantified"). Now normative with the ECDF
   formula inline, matching the pattern established by CLS-002 and
   CLS-006. Carries an explicit certainty formula
-  (`source_reliability × temporal_relevance`) and an explicit
+  (`history_sufficiency × temporal_relevance`) and an explicit
   cross-reference to CLS-009 for the two statistical guard conditions.
 - **CLS-009 — RULE_BASED degraded-confidence fallback (new).** Covers
   two statistical guard conditions: (i) rolling IQR of the history
@@ -200,7 +241,7 @@ closed-universe constraint at all) rests on five properties:
   or hard-coded allow-list in code (which *is* a registry, just with
   worse ergonomics) — are either unsafe or no different in substance.
 * **Calibration per class, not per symbol:**
-  * Parameters are scoped per class. N, D, deviation_kind, expected_frequency_seconds live in the registry keyed by indicator class. Multiple symbols in the same class share parameter values, eliminating duplication when tuning.
+  * Parameters are scoped per class. `N`, `deviation_kind`, and `expected_frequency_seconds` live in the registry keyed by indicator class. Multiple symbols in the same class share parameter values, eliminating duplication when tuning.
   * Rolling-window history is scoped per symbol. Each symbol maintains its own ECDF reference distribution. Pooling history across symbols within a class is out of scope and would require a per-class exchangeability argument.
 
 - **Shared contract between .NET ingestion and Python classifier.**
@@ -209,10 +250,9 @@ closed-universe constraint at all) rests on five properties:
   parameters. A file is the minimum viable shared artefact across the
   HTTP boundary; in-memory alternatives would require a second
   synchronisation mechanism.
-- **Audit trail in git.** Parameter evolution (`D` tuned up, `N`
-  extended, a new class added) lives in git history when the registry
-  is a file. In code it gets mixed with logic changes and gets lost
-  in review.
+- **Audit trail in git.** Parameter evolution (`N` extended, a new class
+  added) lives in git history when the registry is a file. In code it
+  gets mixed with logic changes and gets lost in review.
 - **Operational approval gate.** Adding an indicator class is a
   trading-risk decision. A PR against a registry file makes that
   decision visible in review; a code change buries it among

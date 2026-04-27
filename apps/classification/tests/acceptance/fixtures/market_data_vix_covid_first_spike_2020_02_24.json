@@ -29,7 +29,6 @@
     "expected_score": 1.00,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
     "rationale_pending_trader": "SRS CLS-001 ECDF: VIX median=15.325, |deviation|=|25.03-15.325|=9.705. All 20 historical deviations from the calm Feb window are ≤ 9.705 (window was trading 13.68-18.84), so ecdf_rank=20, severity=20/20=1.00. This was the first COVID signal — highest rank in the pre-crisis window. The tanh implementation (~0.31) dramatically understates this event due to LIMITATIONS.md #4: z-score magnitude (6.5) doesn't map linearly to exploitability, and the initial panic often precedes the peak move. ECDF correctly identifies 1.00: extreme relative to pre-crisis regime."
   }

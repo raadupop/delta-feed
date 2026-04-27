@@ -32,7 +32,6 @@
     "expected_score": 0.90,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "source_reliability_min": 0.95,
     "temporal_relevance_min": 0.95,
     "rationale_pending_trader": "SRS CLS-001 ECDF: |deviation|=|6.9-6.7|=0.2pp. Count of historical surprises ≤ 0.2 in the 30-month window: 27 out of 30 (the three surprises of 0.4, 0.5, and 0.4 exceed 0.2), so ecdf_rank=27, severity=27/30=0.90. Modest 0.2pp upside surprise during inflation ramp. Ranked high (90th percentile) because historically most CPI surprises were 0.0-0.1pp. The current tanh implementation (~0.49) understates: the surprise is unusual relative to history. ECDF 0.90 is correct."
   }

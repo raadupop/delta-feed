@@ -1,5 +1,5 @@
 {
-  "_comment": "Quiet summer day — VIX at 12.68 against a calm declining window. Exercises the noise-zone axis: severity should be near zero, guarding against score inflation that would trigger false composite signals downstream.",
+  "_comment": "Known false positive — quiet summer day, VIX 12.68 against a calm window (median 14.54). ECDF rank-within-quiet-regime emits 0.90 (top decile by rank) while trader truth is ~0: nothing happened, VIX drifted inside its normal range. Same pathology as market_data_vix_low_vol_regime_2017_10_05 in a less extreme regime. xfail(strict=True) pins the gap; flips green when a noise-zone gate (absolute-magnitude / vol-of-vol / window-spread filter) is added to SRS CLS-001.",
   "status": "SOURCED — PENDING /trader signoff",
   "source": {
     "provider": "FRED",
@@ -26,11 +26,12 @@
     }
   },
   "expected_band": {
-    "expected_score": 0.90,
+    "score_min": 0.0,
+    "score_max": 0.20,
     "score_type": "ANOMALY_DETECTION",
     "classification_method": "RULE_BASED",
-    "source_reliability_min": 0.85,
     "temporal_relevance_min": 0.95,
-    "rationale_pending_trader": "SRS CLS-001 ECDF: VIX median=14.54, |deviation|=|12.68-14.54|=1.86. Count of deviations ≤ 1.86: only 2 window values out of 20 have larger deviation (12.39 at 2.15, 12.57 at 1.97), so ecdf_rank=18, severity=18/20=0.90. This is the noise-zone axis: calm summer day with VIX drifting within its normal range. ECDF produces 0.90 because this is high relative to the calm window (top decile), yet it's not a tradeable signal — the z-score was negative (VIX below mean). Tanh gives 0.07, which incorrectly suggests signal strength below threshold. ECDF's 0.90 reflects that within this quiet regime, the move is relatively unusual, even if absolute level is tame."
+    "rationale_pending_trader": "Trader-band, not SRS-formula-band. Window median=14.54, |deviation|=|12.68-14.54|=1.86. 18 of 20 history |deviations from median| are ≤ 1.86 → SRS CLS-001 ECDF rank = 0.90. But this is a known false positive: a calm summer day with VIX drifting below its window mean is not a tradeable signal. A straddle bought on this severity bleeds theta. Trader-defensible severity ≤ 0.20 reflects the regime: calm window, no event, no signal. The test FAILS today and stays failing until a noise-zone gate (absolute-magnitude / vol-of-vol / window-spread filter) lands in SRS CLS-001 — by design."
   }
 }
+

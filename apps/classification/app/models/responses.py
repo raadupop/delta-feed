@@ -27,7 +27,7 @@ class ClassifyResponse(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     score_type: ScoreType
     certainty: float = Field(ge=0.0, le=1.0)
-    source_reliability: float | None = Field(default=None, ge=0.0, le=1.0)
+    history_sufficiency: float | None = Field(default=None, ge=0.0, le=1.0)
     temporal_relevance: float | None = Field(default=None, ge=0.0, le=1.0)
     event_taxonomy: str | None = None          # not all strategies produce one
     classification_method: ClassificationMethod

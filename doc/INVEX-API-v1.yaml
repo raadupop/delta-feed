@@ -953,12 +953,23 @@ components:
         score:
           type: number
           format: double
-          minimum: 0.0
+          minimum: -1.0
           maximum: 1.0
           description: |
-            Classification score. Semantics depend on score_type:
-            - ANOMALY_DETECTION: statistical deviation from rolling baseline, mapped via tanh to [0,1].
-            - EVENT_ASSESSMENT: LLM-judged event impact on [0,1].
+            Classification score (SRS CLS-001, v2.3.3).
+
+            Range and interpretation depend on score_type:
+              - ANOMALY_DETECTION (RULE_BASED strategies): signed long-horizon
+                ECDF rank in [-1.0, +1.0]. Sign follows the SRS §3 sign
+                convention: '+' = deviation in the direction historically
+                associated with vol expansion or hawkish surprise (current
+                value above rolling median, actual above expected, correlation
+                above baseline); '-' = the opposite. Magnitude is the
+                long-horizon ECDF rank in [0.0, 1.0]. Per-indicator economic
+                interpretation of '+' is the responsibility of downstream
+                consumers, not the classifier.
+              - EVENT_ASSESSMENT (GEOPOLITICAL strategies, AI-judged):
+                non-negative impact score in [0.0, +1.0]. Sign is not used.
         score_type:
           $ref: "#/components/schemas/ScoreType"
         certainty:
@@ -968,19 +979,18 @@ components:
           maximum: 1.0
           description: |
             Combined certainty score composed of two independent dimensions:
-            source reliability (accuracy and trustworthiness of the source)
-            and temporal relevance (whether the market has already priced this
+            history sufficiency (window fullness, len(history) / N) and
+            temporal relevance (whether the market has already priced this
             signal). Both dimensions are quantified independently and combined
             (SRS CLS-001).
-        source_reliability:
+        history_sufficiency:
           type: number
           format: double
           minimum: 0.0
           maximum: 1.0
           description: |
-            Source reliability dimension of certainty — accuracy and
-            trustworthiness of the data source (SRS CLS-001). Optional;
-            provided when dimensions are computed independently.
+            Window-fullness dimension of certainty: `min(1.0, len(history) / N)`.
+            Optional; provided when dimensions are computed independently.
         temporal_relevance:
           type: number
           format: double
@@ -1029,17 +1039,24 @@ components:
     CompositeScore:
       type: object
       description: |
-        Aggregated exploitability score (SRS CLS-002).
+        Aggregated exploitability score (SRS CLS-002, v2.3.3).
 
-        Formula: CompositeScore = Σ(w_c × max_confirmed(severity_c × certainty_c)) / Σ(w_c × d_c)
+        Formula: CompositeScore = Σ(w_c × signed_max_confirmed_c) / Σ(w_c × d_c)
         where c iterates over source categories with at least one assessment,
-        w_c is the category weight from the active weighting scheme,
-        max_confirmed selects the highest (severity × certainty) value in
-        category c that has at least one corroborating signal within the same
-        category, and d_c is the source-availability discount factor: 1.0 when
-        category c is actively reporting, a configurable penalty (default 0.7)
-        when category c is expected but unavailable. Categories with zero
-        assessments are excluded from both numerator and denominator.
+        w_c is the category weight from the active weighting scheme, and
+        signed_max_confirmed_c is the assessment in category c that maximises
+        |severity × certainty| among (i) assessments confirmed by at least
+        one corroborating same-category assessment within the corroboration
+        window for the event type, or (ii) assessments exempted from
+        corroboration by the high-conviction bypass: |severity| above the
+        long-horizon ECDF percentile p_bypass (default 0.999). The selected
+        assessment's full signed (severity × certainty) value is contributed.
+        d_c is the source-availability discount factor: 1.0 when category c
+        is actively reporting, otherwise a configurable duration-scaled
+        penalty d_c(Δt) (default schedule: 0.95 for Δt < 5 min,
+        0.7 for 5 ≤ Δt < 30 min, 0.5 for Δt ≥ 30 min).
+        Categories with zero assessments are excluded from both numerator and
+        denominator.
       required: [composite_id, score, weighting_scheme_id, contributing_sources, absent_sources, component_scores, computed_at, as_of]
       properties:
         composite_id:
@@ -1048,8 +1065,14 @@ components:
         score:
           type: number
           format: double
-          minimum: 0.0
+          minimum: -1.0
           maximum: 1.0
+          description: |
+            Composite exploitability score in [-1.0, +1.0] (SRS CLS-002,
+            v2.3.3). Sign matches the dominant signed contribution: '+' =
+            net vol-expansion / hawkish-surprise conviction; '-' = net
+            vol-compression / dovish-surprise conviction. Magnitude is
+            the conviction strength.
         weighting_scheme_id:
           type: string
         contributing_sources:

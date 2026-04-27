@@ -87,9 +87,6 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
 
     if "classification_method" in band:
         assert body["classification_method"] == band["classification_method"]
-    if "source_reliability_min" in band:
-        assert body["source_reliability"] is not None
-        assert body["source_reliability"] >= band["source_reliability_min"]
     if "temporal_relevance_min" in band:
         assert body["temporal_relevance"] is not None
         assert body["temporal_relevance"] >= band["temporal_relevance_min"]
@@ -98,3 +95,34 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
         assert body["temporal_relevance"] <= band["temporal_relevance_max"], (
             f"{anchor_name}: temporal_relevance {body['temporal_relevance']} exceeds max {band['temporal_relevance_max']}"
         )
+
+
+def test_flat_window_returns_degraded_response(client: TestClient) -> None:
+    """Flat-window degeneracy guard (ADR-0002 amendment 2, 2026-04-27).
+
+    Not an anchor — there is no historical event to replay. This pins the
+    `app.math.ecdf.is_window_flat` contract: when the rolling window has
+    zero spread, the strategy short-circuits to a degraded RULE_BASED
+    response (any non-zero deviation against zero-spread history would
+    rank at 1.0, a guaranteed false positive at max severity).
+    """
+    seed_market_data_window("VIX", [15.0] * 504, "2019-07-12T00:00:00+00:00")
+
+    resp = client.post(
+        "/classify",
+        json={
+            "source_category": "MARKET_DATA",
+            "payload_type": "STRUCTURED",
+            "structured_payload": {
+                "symbol": "VIX",
+                "current_value": 15.5,
+                "timestamp": "2019-07-15T00:00:00Z",
+            },
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["score"] == 0.0
+    assert body["classification_method"] == "RULE_BASED"
+    assert "flat" in body["reasoning_trace"].lower()

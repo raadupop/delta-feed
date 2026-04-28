@@ -25,12 +25,9 @@ class RollingWindow:
     last_update: datetime | None = None
 
     def __post_init__(self) -> None:
-        # Ensure the deque is sized from the class. Callers may pass an
-        # un-bounded or differently-bounded deque (e.g. tests, bootstrap
-        # pre-population); we resize it here so N is honoured uniformly
-        # regardless of construction site.
-        if self.values.maxlen != self.indicator_class.N:
-            self.values = deque(self.values, maxlen=self.indicator_class.N)
+        target_maxlen = self.indicator_class.N_L or self.indicator_class.N
+        if self.values.maxlen != target_maxlen:
+            self.values = deque(self.values, maxlen=target_maxlen)
 
     def append(self, value: float, timestamp: datetime) -> None:
         self.values.append(value)

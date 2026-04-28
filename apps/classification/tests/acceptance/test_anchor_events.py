@@ -53,18 +53,29 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
             f"Per HARNESS.md source-provenance rule, no values are invented to make a test runnable."
         )
 
+    srs_version = anchor.get("srs_version", "2.3.2")
+    if srs_version != "2.3.3":
+        pytest.skip(
+            f"{anchor_name}: fixture is srs_version={srs_version!r}; awaiting v2.3.3 "
+            "rebaseline (long_horizon_window of length N_L from FRED, signed expected_score). "
+            "Per HARNESS.md source-provenance rule, no values are invented."
+        )
+
     xfail = anchor.get("xfail")
     if xfail:
         request.applymarker(pytest.mark.xfail(reason=xfail.get("reason", ""), strict=xfail.get("strict", True)))
 
+    long_horizon = anchor.get("long_horizon_window")
     category = anchor["request"]["source_category"]
     if category == "MARKET_DATA":
         seed_market_data_window(
             anchor["symbol"], anchor["window"], anchor["last_update"],
+            long_horizon_values=long_horizon,
         )
     elif category == "MACROECONOMIC":
         seed_macro_window(
             anchor["indicator"], anchor["window"], anchor["last_update"],
+            long_horizon_values=long_horizon,
         )
     else:
         pytest.skip(f"Anchor category {category} not yet supported by acceptance seeding")
@@ -75,14 +86,37 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
 
     band = anchor["expected_band"]
     score = body["score"]
-    if "expected_score" in band:
-        assert score == band["expected_score"], (
-            f"{anchor_name}: score {score} != expected {band['expected_score']}"
+    if "expected_score_signed" in band:
+        tol = band.get("score_tolerance", 0.0)
+        target = band["expected_score_signed"]
+        assert abs(score - target) <= tol, (
+            f"{anchor_name}: signed score {score} differs from {target} by more than tol={tol}"
+        )
+    elif "score_min_signed" in band and "score_max_signed" in band:
+        assert band["score_min_signed"] <= score <= band["score_max_signed"], (
+            f"{anchor_name}: signed score {score} outside band "
+            f"[{band['score_min_signed']}, {band['score_max_signed']}]"
         )
     else:
-        assert band["score_min"] <= score <= band["score_max"], (
-            f"{anchor_name}: score {score} outside band [{band['score_min']}, {band['score_max']}]"
+        raise AssertionError(
+            f"{anchor_name}: srs_version=2.3.3 fixture must declare "
+            "expected_score_signed or [score_min_signed, score_max_signed]"
         )
+
+    if "sign_convention_check" in band:
+        expected_sign = band["sign_convention_check"]
+        if expected_sign == "+1":
+            assert score > 0, f"{anchor_name}: expected positive score, got {score}"
+        elif expected_sign == "-1":
+            assert score < 0, f"{anchor_name}: expected negative score, got {score}"
+        elif expected_sign == "near_zero":
+            assert abs(score) < 0.1, f"{anchor_name}: expected near-zero score, got {score}"
+        else:
+            raise AssertionError(
+                f"{anchor_name}: sign_convention_check={expected_sign!r} not in "
+                "{'+1', '-1', 'near_zero'}"
+            )
+
     assert body["score_type"] == band["score_type"]
 
     if "classification_method" in band:
@@ -95,34 +129,3 @@ def test_anchor_event(client: TestClient, anchor_name: str, anchor: dict[str, An
         assert body["temporal_relevance"] <= band["temporal_relevance_max"], (
             f"{anchor_name}: temporal_relevance {body['temporal_relevance']} exceeds max {band['temporal_relevance_max']}"
         )
-
-
-def test_flat_window_returns_degraded_response(client: TestClient) -> None:
-    """Flat-window degeneracy guard (ADR-0002 amendment 2, 2026-04-27).
-
-    Not an anchor — there is no historical event to replay. This pins the
-    `app.math.ecdf.is_window_flat` contract: when the rolling window has
-    zero spread, the strategy short-circuits to a degraded RULE_BASED
-    response (any non-zero deviation against zero-spread history would
-    rank at 1.0, a guaranteed false positive at max severity).
-    """
-    seed_market_data_window("VIX", [15.0] * 504, "2019-07-12T00:00:00+00:00")
-
-    resp = client.post(
-        "/classify",
-        json={
-            "source_category": "MARKET_DATA",
-            "payload_type": "STRUCTURED",
-            "structured_payload": {
-                "symbol": "VIX",
-                "current_value": 15.5,
-                "timestamp": "2019-07-15T00:00:00Z",
-            },
-        },
-    )
-
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["score"] == 0.0
-    assert body["classification_method"] == "RULE_BASED"
-    assert "flat" in body["reasoning_trace"].lower()

@@ -47,24 +47,40 @@ def reset_state() -> Iterator[None]:
     state.windows.clear()
 
 
-def _seed_window(symbol: str, values: list[float], last_update_iso: str) -> None:
+def _seed_window(
+    symbol: str,
+    values: list[float],
+    last_update_iso: str,
+    long_horizon_values: list[float] | None = None,
+) -> None:
     """Seed a rolling window from registry-defined indicator class.
 
-    The window's deque is sized from `IndicatorClass.N` via RollingWindow.__post_init__,
-    so callers don't have to know N — they only provide the seed values they
-    have on hand.
+    Per SRS v2.3.3 (CLS-001), severity is computed over the long-horizon
+    window `N_L` when set. Callers can pass `long_horizon_values` (length
+    must equal `IndicatorClass.N_L`); they take precedence over `values`.
     """
     entry = registry.get_symbol(symbol)
+    seed = long_horizon_values if long_horizon_values is not None else values
     state.windows[symbol] = RollingWindow(
         indicator_class=entry.indicator_class,
-        values=deque(values),
+        values=deque(seed),
         last_update=datetime.fromisoformat(last_update_iso),
     )
 
 
-def seed_market_data_window(symbol: str, values: list[float], last_update_iso: str) -> None:
-    _seed_window(symbol, values, last_update_iso)
+def seed_market_data_window(
+    symbol: str,
+    values: list[float],
+    last_update_iso: str,
+    long_horizon_values: list[float] | None = None,
+) -> None:
+    _seed_window(symbol, values, last_update_iso, long_horizon_values)
 
 
-def seed_macro_window(indicator: str, values: list[float], last_update_iso: str) -> None:
-    _seed_window(indicator, values, last_update_iso)
+def seed_macro_window(
+    indicator: str,
+    values: list[float],
+    last_update_iso: str,
+    long_horizon_values: list[float] | None = None,
+) -> None:
+    _seed_window(indicator, values, last_update_iso, long_horizon_values)

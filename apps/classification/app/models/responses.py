@@ -24,7 +24,7 @@ class ScoreType(str, Enum):
 class ClassifyResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    score: float = Field(ge=0.0, le=1.0)
+    score: float = Field(ge=-1.0, le=1.0)
     score_type: ScoreType
     certainty: float = Field(ge=0.0, le=1.0)
     history_sufficiency: float | None = Field(default=None, ge=0.0, le=1.0)

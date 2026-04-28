@@ -71,7 +71,9 @@ classes:
   equity_vol_index:
     source_category: MARKET_DATA
     N: 504
+    N_L: 1260
     deviation_kind: pct_change
+    severity_fallback_family: none
     expected_frequency_seconds: 86400
     cadence: business_day
 
@@ -82,7 +84,9 @@ classes:
   commodity_vol_index:
     source_category: MARKET_DATA
     N: 504
+    N_L: 1260
     deviation_kind: pct_change
+    severity_fallback_family: none
     expected_frequency_seconds: 86400
     cadence: business_day
 
@@ -92,7 +96,9 @@ classes:
   us_inflation_yoy:
     source_category: MACROECONOMIC
     N: 60
+    N_L: null
     deviation_kind: surprise_yoy
+    severity_fallback_family: log_gaussian
     expected_frequency_seconds: 2592000
 
   # BLS weekly labor releases. Initial and continued claims have correlated
@@ -100,7 +106,9 @@ classes:
   us_labor_weekly:
     source_category: MACROECONOMIC
     N: 156
+    N_L: 312
     deviation_kind: surprise_yoy
+    severity_fallback_family: none
     expected_frequency_seconds: 604800
 
 symbols:

@@ -13,25 +13,54 @@ from pathlib import Path
 from typing import Literal
 
 import yaml  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DeviationKind = Literal["pct_change", "surprise_yoy", "corr_delta"]
 Provider = Literal["fred", "finnhub", "twelve_data"]
 DeriveKind = Literal["pct_change_yoy", "none"]
 SourceCategory = Literal["MARKET_DATA", "MACROECONOMIC", "CROSS_ASSET_FLOW", "GEOPOLITICAL"]
 Cadence = Literal["business_day", "calendar_day"]
+SeverityFallbackFamily = Literal["gaussian", "log_gaussian", "none"]
 
 
 class IndicatorClass(BaseModel):
-    """Per-class calibration parameters. Shared across all member symbols."""
+    """Per-class calibration parameters. Shared across all member symbols.
+
+    SRS v2.3.3 (CLS-001): `N_L` is the long-horizon ECDF window; `None`
+    selects the parametric fallback path. `severity_fallback_family` is
+    the parametric family used when `N_L is None`.
+    """
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
     source_category: SourceCategory
     N: int = Field(gt=0)
+    N_L: int | None = None
     deviation_kind: DeviationKind
+    severity_fallback_family: SeverityFallbackFamily = "none"
     expected_frequency_seconds: int = Field(gt=0)
     cadence: Cadence = "calendar_day"
+
+    @model_validator(mode="after")
+    def _validate_long_horizon(self) -> "IndicatorClass":
+        if self.N_L is not None:
+            if self.N_L < 278:
+                raise ValueError(
+                    f"IndicatorClass {self.name!r}: N_L={self.N_L} below SRS v2.3.3 "
+                    "floor of 278 (|severity|=1 resolution threshold)."
+                )
+            if self.severity_fallback_family != "none":
+                raise ValueError(
+                    f"IndicatorClass {self.name!r}: severity_fallback_family must be "
+                    "'none' when N_L is set (ECDF is the primary path)."
+                )
+        else:
+            if self.severity_fallback_family == "none":
+                raise ValueError(
+                    f"IndicatorClass {self.name!r}: severity_fallback_family must be "
+                    "'gaussian' or 'log_gaussian' when N_L is None."
+                )
+        return self
 
 
 class BootstrapSpec(BaseModel):

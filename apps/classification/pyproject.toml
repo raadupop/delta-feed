@@ -11,13 +11,13 @@ extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
 # Focused, recognized-principle rule set — not a shotgun. Additions should
-# cite the principle they enforce (Fowler refactoring, PEP 8, McCabe, etc.).
+# cite the principle they enforce (PEP 8, McCabe, refactoring catalogue, etc.).
 select = [
     "E",     # pycodestyle errors
     "F",     # pyflakes
     "I",     # isort
-    "B",     # flake8-bugbear (Fowler "Replace Error Code with Exception" etc.)
-    "SIM",   # flake8-simplify (DRY, Fowler "Consolidate Duplicate Conditional")
+    "B",     # flake8-bugbear (replace-error-code-with-exception, etc.)
+    "SIM",   # flake8-simplify (DRY, consolidate-duplicate-conditional)
     "C90",   # mccabe complexity
     "PLR",   # pylint refactor (magic numbers PLR2004, too-many-branches PLR0912, etc.)
 ]

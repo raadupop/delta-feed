@@ -50,38 +50,15 @@ axis the bug lives on.
 5. **The OpenAPI contract** (`doc/openapi.yaml`) declares `indicator_spec` as
    a required sub-schema on the relevant payload variants.
 
-## Harness installed in Phase A (this ADR)
+## Harness controls
 
-The fix itself is deferred to Phase B (ADR-0002). Phase A installs the
-controls that would have caught this class of bug and that will catch the
-fix's regressions:
-
-- **Contract.** `apps/classification/doc/openapi.yaml` (OpenAPI 3.1).
-- **Acceptance suite** under `tests/acceptance/`:
-  - `test_contract_shapes.py` — responses validate against `openapi.yaml`.
-  - `test_anchor_events.py` — parameterized over trader-curated JSON anchors
-    in `tests/acceptance/fixtures/`. Includes a non-monthly MACROECONOMIC
-    indicator anchor (`INITIAL_CLAIMS`) so the per-indicator-frequency axis is
-    exercised. Skipped today pending `/trader` data pull.
-  - `test_health_acceptance.py` — readiness and staleness block.
-  - **Source-provenance rule.** Every fixture value is traceable to a
-    verifiable public provider (FRED / BLS / Twelve Data / Finnhub / Reuters /
-    Bloomberg consensus archive). No synthetic seed windows. `/trader` is
-    accountable; `ANCHORS.md` is the checkpoint.
-- **Fitness function suite** under `tests/architecture/`:
-  - `test_layering.py` — `import-linter` contracts (Clean Architecture
-    layering, no strategy-to-strategy imports, `app.models` purity).
-  - `test_code_hygiene.py` — one principle-level assertion: the
-    project-configured ruff rule set reports zero violations. Rule families
-    (Fowler *Refactoring* magic-number `PLR2004`, McCabe complexity `C90`,
-    flake8-simplify DRY, PEP 8, bugbear) live in `pyproject.toml`, not in
-    test code. The accepted-risk waiver for the two strategy files carrying
-    `_TANH_SCALE` / `_EXPECTED_FREQUENCY_SECONDS` is a `per-file-ignores`
-    entry in `pyproject.toml` tagged `# TODO(ADR-0001)`. Phase B removes the
-    ignore entry and the constants in the same commit.
-  - `test_complexity.py` — `xenon` cyclomatic-complexity ceiling (McCabe).
-  - `test_typing.py` — `mypy --strict` on contract boundaries.
-  - `test_dead_code.py` — `vulture` on `app/`.
+The harness controls that catch this bug class — the contract layer,
+the acceptance suite, and the fitness-function suite — are documented
+in [ADR-0003](0003-harness-architecture.md). The accepted-risk waiver
+for the two strategy files carrying `_TANH_SCALE` /
+`_EXPECTED_FREQUENCY_SECONDS` is a `per-file-ignores` entry in
+`pyproject.toml` tagged `# TODO(ADR-0001)`. Phase B removes the ignore
+entry and the constants in the same commit.
 
 ## Consequences
 
@@ -133,6 +110,6 @@ and the INITIAL_CLAIMS anchor flips from xfail to pass.
 - Source lines at time of bug discovery:
   - `apps/classification/app/strategies/market_data.py:20, 24, 27-36`
   - `apps/classification/app/strategies/macroeconomic.py:19, 23, 26-33`
-- Framework: `apps/classification/HARNESS.md`
+- Harness architecture: [ADR-0003](0003-harness-architecture.md); inferable inventory in [`HARNESS.md`](../../HARNESS.md)
 - Contract: `apps/classification/doc/openapi.yaml`
 - ADR format: Michael Nygard, *Documenting Architecture Decisions* (2011)

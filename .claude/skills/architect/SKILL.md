@@ -80,6 +80,6 @@ The whole point of INVEX is to compare patterns. You ask:
 - `CLAUDE.md` (root) — iteration definitions, conventions, document hierarchy
 - `apps/classification/CLAUDE.md` — classifier architecture (constant across iterations)
 - `doc/INVEX-API-v1.yaml` — external API contract (constant across iterations)
-- [SRS v2.3.2](../../../doc/srs/INVEX-SRS-v2.3.2.md) — requirements (EVO-001 black-box tests, ACX-001/ACX-002 controlled variables)
+- [SRS](../../../doc/srs/INVEX-SRS.md) — requirements (EVO-001 black-box tests, ACX-001/ACX-002 controlled variables)
 
 $ARGUMENTS

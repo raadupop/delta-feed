@@ -85,6 +85,6 @@ For any component or decision, you demand:
 - `doc/INVEX-API-v1.yaml` — full pipeline schemas including PositionRecord, ExitRecord
 - `apps/classification/LIMITATIONS.md` — documented model weaknesses
 - `apps/classification/CLAUDE.md` — classifier architecture and data sources
-- [SRS v2.3.2](../../../doc/srs/INVEX-SRS-v2.3.2.md) — system requirements including CLS-008 (monitoring), CLS-009 (RULE_BASED degraded confidence)
+- [SRS](../../../doc/srs/INVEX-SRS.md) — system requirements including CLS-008 (monitoring), CLS-009 (RULE_BASED degraded confidence)
 
 $ARGUMENTS

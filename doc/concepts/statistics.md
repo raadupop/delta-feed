@@ -4,8 +4,9 @@ Concepts used in INVEX classification service, explained from first principles.
 
 **Update log.**
 - 2026-04-14 — initial file (§1–§7: exponential decay, normalization, clamping, multiplicative vs additive, discounting, z-score, tanh).
-- 2026-04-19 — ECDF-era additions (§8–§16). z-score (§6) and tanh (§7) marked DEPRECATED per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS v2.3.2 CLS-001.
-- 2026-04-23 — §9 Deviation added (after §8 ECDF). Canonical definition per SRS v2.3.2 §3. §9–§16 renumbered to §10–§17.
+- 2026-04-19 — ECDF-era additions (§8–§16). z-score (§6) and tanh (§7) marked DEPRECATED per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS CLS-001.
+- 2026-04-23 — §9 Deviation added (after §8 ECDF). Canonical definition per SRS §3. §9–§16 renumbered to §10–§17.
+- 2026-04-30 — §18–§23 added (signed deviation, long-horizon reference window, parametric fallback, high-conviction bypass percentile, corroboration window, duration-scaled source-dropout penalty) per current SRS CLS-001 / CLS-002 / EXT-004. §11 IQR-floor `D` discussion softened — `D` is fully removed in current SRS and retained here as historical only. Doc cross-references de-versioned.
 
 ---
 
@@ -155,7 +156,7 @@ certainty = history_sufficiency × temporal_relevance(discount)
 
 ## 6. Z-Score
 
-> **DEPRECATED (2026-04-19).** INVEX no longer uses z-score as an intermediate severity measure. Replaced by ECDF rank (§8) per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS v2.3.2 CLS-001. Section retained as audit trail.
+> **DEPRECATED (2026-04-19).** INVEX no longer uses z-score as an intermediate severity measure. Replaced by ECDF rank (§8) per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS CLS-001. Section retained as audit trail.
 
 How many standard deviations a value is from the mean.
 
@@ -181,7 +182,7 @@ z = (value - mean) / standard_deviation
 
 ## 7. tanh (Hyperbolic Tangent)
 
-> **DEPRECATED (2026-04-19).** INVEX no longer uses `tanh(|z|/scale)` for severity compression. The fitted `_TANH_SCALE` constant assumed a time-invariant distribution, which no vol indicator has across 2017–2024. Replaced by ECDF rank (§8) per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS v2.3.2 CLS-001. Section retained as audit trail.
+> **DEPRECATED (2026-04-19).** INVEX no longer uses `tanh(|z|/scale)` for severity compression. The fitted `_TANH_SCALE` constant assumed a time-invariant distribution, which no vol indicator has across 2017–2024. Replaced by ECDF rank (§8) per [ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md) and SRS CLS-001. Section retained as audit trail.
 
 A function that maps any number to the range (-1, 1). INVEX uses `tanh(|x|)` to map to [0, 1].
 
@@ -236,7 +237,7 @@ The unsigned distance between an observed value and a strategy-specific referenc
 
 **Why not z-score.** Z-score divides by standard deviation: `z = (value − mean) / std`. That requires `std` to be stable and meaningful. Vol indicators are fat-tailed, regime-shifting, and serially correlated — `std` inflates after a spike and deflates in quiet regimes, silently distorting what "2 sigma" means. Deviation skips the division entirely. Magnitude is kept in native units; the ECDF then ranks it within its own history. The distribution shape does not matter.
 
-**Per-category definitions (SRS v2.3.2 §3):**
+**Per-category definitions (SRS §3):**
 
 | Source category | Formula | Reference value |
 |---|---|---|
@@ -311,11 +312,13 @@ IQR = 15 − 11 = 4
 
 **Why IQR, not standard deviation.** Standard deviation gets destroyed by outliers — one VIX spike from 10 to 50 makes std explode, making every other value look "normal" afterward. IQR ignores the top and bottom 25% by construction. A single spike doesn't move it.
 
-**In INVEX.** The minimum-informative-dispersion floor `D` is measured in IQR, not std:
-
-- `IQR(history) < D` → history is too flat to support a meaningful ECDF rank → CLS-009 degraded confidence.
-
-Uses IQR instead of std specifically to avoid the pathology where a single recent spike inflates std, making the floor falsely "pass" even though the remaining history is flat.
+**Historical note on `D` in INVEX.** Earlier drafts of CLS-009 specified
+a minimum-informative-dispersion floor `D` measured in IQR, intended to
+catch flat-window pathologies. **`D` was removed from the current SRS**
+and replaced by the global window-degeneracy guard described in §17 —
+distinct-value count, not dispersion magnitude. IQR is retained in
+INVEX vocabulary because it remains the right tool for *describing*
+spread robustly; it is no longer the harness's flat-window check.
 
 ---
 
@@ -440,3 +443,198 @@ A global check that the history window has enough distinct values for the ECDF r
 **Why rounding to 4 decimals.** Matches the significance of the inputs — FRED daily closes carry 2 decimals, pct-change `|deviation|` carries at most 4–5 significant decimals after division. Rounding to 4 squashes float noise without conflating genuinely distinct values.
 
 **Trade-off made explicit.** The guard introduces false-negatives in genuine slow-burn regime-change events (OVX grinding upward from 22 to 25 over a month, all distinct values). It will *not* trip then, because the history has plenty of distinct values — that is the correct behaviour, those grinds should produce real ranks. The guard's only job is to catch the pathological case where the history has structurally collapsed.
+
+---
+
+## 18. Signed Deviation and Sign Convention
+
+ECDF rank gives severity *magnitude*. CLS-001 (current SRS) also requires
+severity *direction* — vol-expansion vs vol-compression — so the
+composite (CLS-002), the IV dislocation (CLS-006), and the position
+constructor (POS-001) can natively distinguish the two opportunity
+types without re-deriving direction from auxiliary fields.
+
+**Definition.** `deviation_signed` is `deviation` (§9) without the
+absolute-value bars:
+
+| Source category | `deviation_signed` |
+|---|---|
+| MARKET_DATA | `current_value − rolling_median(history)` |
+| MACROECONOMIC | `actual_value − consensus_expected_value` |
+| CROSS_ASSET_FLOW | `pairwise_correlation − rolling_baseline_correlation` |
+
+By construction `\|deviation_signed\| ≡ deviation`.
+
+**Sign convention.** Per-strategy rules in SRS §3 attach a meaning to
+the sign:
+
+- `+` severity → vol-expansion opportunity (signal-implied volatility
+  *above* market).
+- `−` severity → vol-compression opportunity (signal-implied
+  volatility *below* market).
+
+For MARKET_DATA on a vol indicator (VIX / OVX), a positive
+`deviation_signed` is a vol-expansion signal (the vol index is above
+its rolling median). For MACROECONOMIC on a hawkish-surprise indicator
+(CPI YoY), a positive `deviation_signed` (actual hotter than expected)
+is a vol-expansion signal. The convention is per-class, registered
+alongside `deviation_kind`.
+
+**The composite (CLS-001 v current).** Severity is the signed ECDF rank
+in `[-1.0, +1.0]`:
+
+```
+severity = sign(deviation_signed) × ecdf_rank(|deviation_signed|) / N_L
+```
+
+Magnitude in `[0, 1]`, sign in `{−, +}`, product in `[-1, +1]`.
+
+**Why one signed scalar, not two unsigned ones.** Splitting severity
+into a magnitude field and a direction enum was rejected: every
+downstream consumer would have to recombine them, the OpenAPI surface
+doubles, and an ambiguous direction (zero magnitude with a "direction"
+field) becomes representable. A single signed scalar is the minimal
+encoding.
+
+---
+
+## 19. Long-Horizon Reference Window (`H_L`, `N_L`)
+
+Earlier ECDF drafts ranked `|deviation|` against a short rolling
+window (`N` = 20–60 days). The current SRS replaces that with a
+long-horizon reference window `H_L` of length `N_L`, with `N_L`
+**bounded below by binomial standard error** to ensure the p99
+percentile rank is meaningful.
+
+**The pathology the long horizon fixes — window absorption.** Suppose
+VIX gaps from 14 to 28 (large dislocation). The short window absorbs
+the spike. A second identical move days later ranks *lower* than the
+first because the window has internalised it. Severity falls while the
+underlying physics has not changed. The 2017-10-05 / 2019-07-15 anchor
+fixtures surfaced this directly: two structurally identical moves,
+divergent severities, no rule that distinguished them.
+
+**The binomial-SE bound.** The ECDF rank of an out-of-sample value
+near the p99 percentile has standard error roughly
+`√(p(1-p)/N) ≈ √(0.01 × 0.99 / N)`. Demanding that the standard error
+be ≤ 0.0059 (so that a "p99" rank is statistically distinguishable
+from "p98") gives `N ≥ 278`. The current SRS pins `N_L ≥ 278` for any
+indicator class that supports a daily or higher cadence.
+
+**Practical consequence.** Bootstrap depth scales with `N_L` —
+classifier startup pulls ≥ 278 days of history per qualifying symbol,
+not the legacy 20-day window. This shifts cost onto bootstrap, in
+exchange for a regime-stable rank.
+
+**What `N_L` does not fix.** Event-clustering / autocorrelation. A
+post-event ramp still produces rank decay if the events repeat inside
+`H_L`. The SRS treats this as a residual limitation, not a bug.
+
+---
+
+## 20. Parametric Fallback
+
+Some indicator classes cannot reach `N_L ≥ 278` even with full
+historical bootstrap — monthly macro releases (CPI YoY, PCE) at one
+print per month would need 23+ years of clean history per class, which
+the providers don't supply uniformly. For those classes, the current
+SRS specifies a **parametric fallback**: fit a parametric distribution
+(typically Gaussian or Student-t) to whatever `H_L` is available, and
+compute the percentile rank from the fitted CDF rather than the empirical
+ECDF.
+
+**Trade-off, made explicit.**
+
+- *Cost.* Introduces a distributional assumption that the empirical
+  ECDF deliberately avoided. A misfit (e.g. Gaussian on a fat-tailed
+  surprise distribution) silently distorts the rank.
+- *Benefit.* Produces a usable severity rank where the alternative is
+  no severity at all (or a CLS-009-style degraded response on every
+  print, which makes the indicator class operationally dead).
+
+**Routing.** The fallback is selected by the indicator registry, not
+inferred at request time. A class flagged `parametric_fallback = true`
+runs the fitted-CDF path; classes with sufficient `H_L` run pure
+ECDF. CLS-009's degraded-confidence response remains available for
+classes whose `H_L` is too thin even to fit.
+
+**Implementation hint.** The fitted distribution is refreshed on
+bootstrap and at registry reload; not re-fit per request.
+
+---
+
+## 21. High-Conviction Bypass Percentile
+
+CLS-002 (current SRS) requires *corroboration* before a single signal
+escalates the composite — a cross-source check that prevents a single
+noisy print from triggering a position. The current SRS adds a
+**high-conviction bypass**: a single signal whose severity magnitude
+exceeds a global percentile threshold `p_bypass` is exempted from the
+corroboration requirement.
+
+**Why a percentile, not a `kσ`.** The underlying `|deviation|`
+distributions are fat-tailed and non-stationary. A `kσ` threshold
+defines the bypass relative to a moving (and possibly distorted)
+standard deviation; a percentile defines it relative to the long-horizon
+ECDF rank itself, which is invariant to distribution shape.
+
+**Default.** `p_bypass = 0.999` (top 0.1% of the long-horizon
+distribution). Configurable per deployment.
+
+**Failure mode it accepts.** A genuine top-0.1% signal that is in fact
+a data error will bypass corroboration. The bypass is a deliberate
+asymmetry: the cost of missing a true tail event is large enough to
+tolerate occasional false-positive bypass triggers, which downstream
+risk controls (POS-001 sizing, EXT-004 vega-crush gate) should
+ultimately catch.
+
+---
+
+## 22. Corroboration Window
+
+The same-category corroboration rule in earlier CLS-002 drafts
+required an additional signal in the *same* `source_category` within
+an unspecified time window. The current SRS replaces "same category"
+with **event-typology-dependent corroboration windows** matched to
+realistic INVEX latency:
+
+- **Intraday market-data events** (vol spike, correlation break) —
+  corroboration window on the order of 1–5 seconds, acknowledging the
+  HTTP-coupled .NET → Python boundary.
+- **Macroeconomic releases** — corroboration window on the order of
+  30–60 minutes, acknowledging that related prints arrive on a release
+  calendar, not in lockstep.
+- **Cross-asset flow events** — somewhere in between, depending on the
+  basket's typical lead-lag structure.
+
+**Why typology, not a fixed window.** A 1-second window for a CPI
+print rejects every plausibly corroborating signal (NFP doesn't print
+the same second). A 60-minute window for a vol spike admits unrelated
+signals from later in the session. Matching the window to the typology
+keeps the corroboration rule operationally meaningful.
+
+---
+
+## 23. Duration-Scaled Source-Dropout Penalty `d_c(Δt)`
+
+CLS-002's source-dropout penalty `d_c` discounts the composite when a
+required source category is unavailable. Earlier drafts used a static
+`d_c = 0.7` for any unavailability; the current SRS replaces this with
+a **monotone-decreasing schedule** in elapsed unavailability `Δt`:
+
+| `Δt` | `d_c(Δt)` |
+|---|---|
+| `Δt < 5 min` | 0.95 |
+| `5 ≤ Δt < 30 min` | 0.7 |
+| `Δt ≥ 30 min` | 0.5 |
+
+**Why duration-scaled, not static.** A 30-second blip in a streaming
+source is operationally different from a 30-minute outage. A static
+penalty over-punishes the blip and under-punishes the outage. The
+schedule restores monotonicity: longer outages discount harder.
+
+**Configurable per deployment.** The schedule above is the default;
+the registry can override per-class.
+
+**Bound.** `d_c ∈ [0, 1]` always; the composite remains in
+`[-1.0, +1.0]` after multiplication.

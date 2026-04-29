@@ -113,7 +113,7 @@ components:
       maximum: 1.0
       description: |
         Closed signed unit interval `[-1.0, +1.0]`. Used for `score` when
-        `score_type = ANOMALY_DETECTION` (SRS CLS-001 v2.3.3): magnitude is
+        `score_type = ANOMALY_DETECTION` (SRS CLS-001): magnitude is
         the long-horizon ECDF rank, sign follows the SRS §3 sign convention.
         Not used for certainty or for EVENT_ASSESSMENT scores.
 
@@ -224,7 +224,7 @@ components:
           description: |
             Classification score. Range and interpretation depend on score_type:
               - ANOMALY_DETECTION (RULE_BASED strategies): signed long-horizon
-                ECDF rank in `[-1.0, +1.0]` (SRS CLS-001 v2.3.3, signed schema).
+                ECDF rank in `[-1.0, +1.0]` (SRS CLS-001, signed schema).
                 Sign follows the SRS §3 sign convention; magnitude is the
                 long-horizon ECDF rank.
               - EVENT_ASSESSMENT (GEOPOLITICAL strategies, AI-judged):

@@ -66,7 +66,7 @@ Pipeline:
 7. Exit (.NET, EXT-001)
 
 The six iterations each reimplement the .NET side. Requirements live in
-[doc/srs/INVEX-SRS-v2.3.2.md](doc/srs/INVEX-SRS-v2.3.2.md); the external
+[doc/srs/INVEX-SRS.md](doc/srs/INVEX-SRS.md); the external
 contract is [doc/INVEX-API-v1.yaml](doc/INVEX-API-v1.yaml). Neither changes
 across iterations.
 
@@ -95,10 +95,11 @@ surprise magnitudes, correlation deviations, LLM-judged event severities. The
 methods.
 
 **Contract.** [apps/classification/doc/openapi.yaml](apps/classification/doc/openapi.yaml)
-(OpenAPI 3.1). Responses carry a score in `[0.0, 1.0]`, a `score_type`
-discriminator (`ANOMALY_DETECTION` vs. `EVENT_ASSESSMENT`), a certainty
-composed of source-reliability and temporal-relevance dimensions, and a
-reasoning trace.
+(OpenAPI 3.1). Responses carry a signed score in `[-1.0, +1.0]` (sign
+encodes vol-expansion vs vol-compression, magnitude encodes severity), a
+`score_type` discriminator (`ANOMALY_DETECTION` vs. `EVENT_ASSESSMENT`), a
+certainty composed of history-sufficiency and temporal-relevance
+dimensions, and a reasoning trace.
 
 **Strategies.** Five, dispatched by `source_category` and `payload_type`:
 
@@ -131,5 +132,6 @@ overview in [apps/classification/HARNESS.md](apps/classification/HARNESS.md).
 - [apps/classification/AGENTS.md](apps/classification/AGENTS.md) — service-local conventions
 - [apps/classification/HARNESS.md](apps/classification/HARNESS.md) — harness framework and test inventory
 - [apps/classification/doc/adr/](apps/classification/doc/adr/) — architectural decision records
-- [doc/srs/INVEX-SRS-v2.3.2.md](doc/srs/INVEX-SRS-v2.3.2.md) — full requirements
+- [doc/srs/INVEX-SRS.md](doc/srs/INVEX-SRS.md) — full requirements
+
 - [doc/INVEX-API-v1.yaml](doc/INVEX-API-v1.yaml) — external .NET API contract

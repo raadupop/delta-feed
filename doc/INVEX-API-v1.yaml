@@ -3,7 +3,7 @@ info:
   title: Invex API
   description: |
     External interface contract for the Invex volatility-exploitation system.
-    Companion to Invex SRS v2.3.2 (ISO/IEC/IEEE 29148:2018).
+    Companion to the Invex SRS (ISO/IEC/IEEE 29148:2018).
 
     This specification defines the system's external boundary — the sole surface
     exercised by the API acceptance test suite (EVO-001). Every architecture
@@ -956,7 +956,7 @@ components:
           minimum: -1.0
           maximum: 1.0
           description: |
-            Classification score (SRS CLS-001, v2.3.3).
+            Classification score (SRS CLS-001).
 
             Range and interpretation depend on score_type:
               - ANOMALY_DETECTION (RULE_BASED strategies): signed long-horizon
@@ -1039,7 +1039,7 @@ components:
     CompositeScore:
       type: object
       description: |
-        Aggregated exploitability score (SRS CLS-002, v2.3.3).
+        Aggregated exploitability score (SRS CLS-002).
 
         Formula: CompositeScore = Σ(w_c × signed_max_confirmed_c) / Σ(w_c × d_c)
         where c iterates over source categories with at least one assessment,
@@ -1068,8 +1068,8 @@ components:
           minimum: -1.0
           maximum: 1.0
           description: |
-            Composite exploitability score in [-1.0, +1.0] (SRS CLS-002,
-            v2.3.3). Sign matches the dominant signed contribution: '+' =
+            Composite exploitability score in [-1.0, +1.0] (SRS CLS-002).
+            Sign matches the dominant signed contribution: '+' =
             net vol-expansion / hawkish-surprise conviction; '-' = net
             vol-compression / dovish-surprise conviction. Magnitude is
             the conviction strength.
@@ -1386,7 +1386,7 @@ components:
             Aggregation function. WEIGHTED_MEAN uses per-category average
             (v2.2.1 legacy). MAX_CONFIRMED_WEIGHTED uses per-category maximum
             of corroborated (severity × certainty) values with source-availability
-            discounting (SRS CLS-002 v2.3.2).
+            discounting (SRS CLS-002).
         source_dropout_penalty:
           type: number
           format: double

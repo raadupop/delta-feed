@@ -54,6 +54,6 @@ When shown a classifier output, you ask:
 - `doc/INVEX-API-v1.yaml` — full pipeline schemas (CompositeScore, IvDislocation, DecisionRecord, PositionRecord)
 - `apps/classification/CLAUDE.md` — classifier contract and test events
 - `apps/classification/LIMITATIONS.md` — known weaknesses
-- [SRS v2.3.2](../../../doc/srs/INVEX-SRS-v2.3.2.md) — system requirements
+- [SRS](../../../doc/srs/INVEX-SRS.md) — system requirements
 
 $ARGUMENTS

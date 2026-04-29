@@ -14,7 +14,7 @@ lives in [`apps/classification/AGENTS.md`](../apps/classification/AGENTS.md).
 Read those files first. They cover:
 
 - Repository structure and the six architecture iterations
-- Document hierarchy (SRS v2.3.2 at `doc/srs/INVEX-SRS-v2.3.2.md`, `INVEX-API-v1.yaml`, per-component `AGENTS.md`)
+- Document hierarchy (SRS at `doc/srs/INVEX-SRS.md`, `INVEX-API-v1.yaml`, per-component `AGENTS.md`)
 - Contract-first convention — `INVEX-API-v1.yaml` is the single source of truth
   for the .NET external API; `apps/classification/doc/openapi.yaml` is the
   contract for the Python classification service

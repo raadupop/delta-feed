@@ -24,9 +24,9 @@ four fixtures collapsed to regression guards — their bands reflect whatever
 the classifier currently outputs, because no cross-tech formula exists to
 independently compute the "correct" severity.
 
-Root cause: [CLS-001 in the SRS](../../../../doc/srs/INVEX-SRS-v2.3.2.md) was (v2.3.1)
-deliberately qualitative ("severity is quantified; certainty has two
-independent dimensions combined somehow") with no formula. This is
+Root cause: [CLS-001 in the SRS](../../../../doc/srs/INVEX-SRS.md) was at
+the time deliberately qualitative ("severity is quantified; certainty
+has two independent dimensions combined somehow") with no formula. This is
 intentional per Insight 7 (spec precision treated as an experimental
 variable in DeltaFeed), but at the product layer it produces an
 unfixable bug class: if the SRS does not specify how severity is
@@ -53,32 +53,21 @@ Three external inputs sharpened the diagnosis:
 
 ## Decision
 
-Four co-decided pieces:
+Three co-decided pieces (the harness layer that originally rode along
+with this ADR is now in [ADR-0003](0003-harness-architecture.md)):
 
 ### 1. ECDF / percentile-rank mapping for all RULE_BASED strategies
 
-Replace `severity = tanh(|z| / _TANH_SCALE)` with:
+Replace `severity = tanh(|z| / _TANH_SCALE)` with an ECDF-rank mapping
+over a per-indicator history window. The normative formula and the
+per-strategy `deviation` definitions live in **SRS §3 and §5.2 CLS-001**.
+Subsequent SRS amendments make the severity signed and re-anchor the
+window to a long-horizon reference; the **ECDF-rank mapping itself is
+the durable decision recorded here**.
 
-```text
-severity = ecdf_rank(|deviation|) / N
-```
-
-over a per-indicator rolling history of length `N`, where `deviation`
-depends on the strategy:
-
-| Strategy | `deviation` |
-| --- | --- |
-| MARKET_DATA | `\|current − rolling_median\|` |
-| MACROECONOMIC | `\|actual − expected\|` |
-| CROSS_ASSET_FLOW | `\|pairwise_correlation − rolling_baseline_correlation\|` |
-
-The mapping from `|deviation|` to severity is identical across strategies;
-only the `deviation` variable differs. ECDF is distribution-free,
-regime-adaptive, and paper-computable per indicator without a magic scale
-constant.
-
-**GEOPOLITICAL stays out.** EVENT_ASSESSMENT via LLM, severity not derived
-from a statistical distribution, different oracle class entirely.
+**GEOPOLITICAL stays out.** EVENT_ASSESSMENT via LLM, severity not
+derived from a statistical distribution, different oracle class
+entirely.
 
 ### 2. Per-class registry parameters
 
@@ -156,13 +145,10 @@ operational approval gate) are documented in the Consequences section below.
 
 ### 4. Backtest harness — Layer A
 
-A new harness layer with a market-reality oracle. Per-event assertions of
-the form *"IV moved > 20% in the 48h after event X → severity must be ≥
-0.7"*. Different oracle from the acceptance suite (SRS contract), so
-different bug classes catch. Python-only, buildable today.
-
-Layer B (system backtest, .NET replay of SRS §9's 10 events) is noted
-here for completeness; scaffolding waits until the .NET iterations exist.
+The market-reality-oracle backtest layer originally co-decided with the
+ECDF pivot has been promoted to [ADR-0003](0003-harness-architecture.md),
+which now owns the harness architecture in full (the three durable
+controls and the three test layers with distinct oracles).
 
 ### Scope of the ECDF pivot
 
@@ -173,38 +159,11 @@ Out of scope: GEOPOLITICAL (LLM-judged).
 
 ## SRS requirements impacted
 
-Landed in SRS v2.3.2 at
-[`doc/srs/INVEX-SRS-v2.3.2.md`](../../../../doc/srs/INVEX-SRS-v2.3.2.md).
-Two requirements are revised/added, one acceptance criterion amended,
-and eight §3 Definitions entries added:
-
-- **CLS-001 — Per-signal classification.** Previously qualitative on
-  severity ("severity is quantified"). Now normative with the ECDF
-  formula inline, matching the pattern established by CLS-002 and
-  CLS-006. Carries an explicit certainty formula
-  (`history_sufficiency × temporal_relevance`) and an explicit
-  cross-reference to CLS-009 for the two statistical guard conditions.
-- **CLS-009 — RULE_BASED degraded-confidence fallback (new).** Covers
-  two statistical guard conditions: (i) rolling IQR of the history
-  window below `D`, (ii) symbol absent from the indicator registry.
-  Distinct from CLS-004, which is explicitly scoped to AI model
-  response validation and does not apply to RULE_BASED strategies.
-- **§3 Definitions.** Eight new entries anchor the new vocabulary:
-  `deviation` (with per-category formula table), `deviation_kind`,
-  `ECDF rank`, `history-window length N`, `indicator class`,
-  `indicator registry`, `minimum-informative dispersion D`, and an
-  explicit z-score deprecation note.
-- **§11.12 — Acceptance criterion 12.** Extended to name CLS-001
-  alongside CLS-002 and CLS-006 for hand-calculated acceptance tests
-  against the formulas in the SRS.
-
-SIG-001 prose preserved verbatim: its "no fewer than four" phrasing
-underpins CT-01 and CT-08 and was not narrowed. The indicator
-registry is anchored in §3 Definitions rather than as a numbered
-sub-requirement. SRS §8.9 (Insight 7) and §8.10 need no change:
-CLS-001 is not categorised in §8.9 (whose named examples are CLS-002,
-CLS-006, CLS-003, POS-001), so tightening its specification does not
-displace any categorisation.
+Landed in the [SRS](../../../../doc/srs/INVEX-SRS.md). The CLS-001
+ECDF formula, CLS-009 degraded-confidence fallback, the indicator
+registry definition, and the §11 acceptance criterion extension are
+all in §3 and §5.2 — see the SRS for normative text. SIG-001's "no
+fewer than four" phrasing was preserved verbatim.
 
 ## Consequences
 
@@ -224,11 +183,25 @@ displace any categorisation.
 
 - `/chief-architect` engagement required to design the full transition
   (ingestion contract, registry format, bootstrap reload semantics).
-- Backtest suite becomes a required harness layer. New maintenance
-  surface.
 - CLS-001 moves from an implicit qualitative specification to an
-  explicit quantitative one. The population of "qualitative"
-  requirements in the SRS shrinks by one relative to its v2.3.1 state.
+  explicit quantitative one. The harness's "qualitative-requirements"
+  surface shrinks by one as a result.
+
+### Coherence under subsequent SRS amendments
+
+Subsequent SRS revisions amended CLS-001 / CLS-002 / CLS-006 / EXT-004
+on top of the ECDF foundation laid here: severity became signed (sign
+encoding vol-expansion vs vol-compression), the ECDF reference window
+moved to a long-horizon `H_L` of binomial-SE-bounded length `N_L`, a
+parametric fallback covers indicator classes whose `N_L` is
+unattainable (monthly macro), the CLS-002 source-dropout penalty
+became duration-scaled, and EXT-004 added catalyst-relative exit and
+a Vega-crush gate. **The decisions in this ADR are not displaced by
+those amendments**: ECDF rank remains the per-signal severity
+mapping, the indicator registry remains the closed-universe
+catalogue, the global window-degeneracy guard (replacing `D`) remains
+the resolution-floor check. The amendments refine, not invert, the
+foundation.
 
 ### Why a registry, not alternatives
 
@@ -290,11 +263,11 @@ the ECDF formula from the start.
 
 - Plan: `C:\Users\Radu\.claude\plans\structured-percolating-parrot.md`
 - ADR-0001: [`0001-per-indicator-tuning-parameters.md`](0001-per-indicator-tuning-parameters.md)
-- CLS-001 severity-formula SRS annex stub (Superseded by SRS v2.3.2):
+- CLS-001 severity-formula SRS annex stub (Superseded by SRS):
   [`srs-annex-cls-001-severity-formula.md`](srs-annex-cls-001-severity-formula.md)
 - Limitations cross-reference: [`../../LIMITATIONS.md`](../../LIMITATIONS.md) #1, #3, #4, #5
-- Harness framework: [`../../HARNESS.md`](../../HARNESS.md)
+- Harness architecture: [ADR-0003](0003-harness-architecture.md); inferable inventory in [`../../HARNESS.md`](../../HARNESS.md)
 - `/chief-architect` briefing: `doc/research/chief-architect-briefing-harness-redesign.md`
-- SRS: [`doc/srs/INVEX-SRS-v2.3.2.md`](../../../../doc/srs/INVEX-SRS-v2.3.2.md)
+- SRS: [`doc/srs/INVEX-SRS.md`](../../../../doc/srs/INVEX-SRS.md)
   (CLS-001, CLS-009, §9 Validation Event Set)
 - ADR format: Michael Nygard, *Documenting Architecture Decisions* (2011)

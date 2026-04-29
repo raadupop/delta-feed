@@ -6,7 +6,7 @@ Volatility-exploitation trading system. Research vehicle measuring how AI agents
 
 ## Repository Structure
 
-- `doc/` — SRS v2.3.2 (Markdown-native, see `doc/srs/`), INVEX-API-v1.yaml, project context
+- `doc/` — SRS (Markdown-native, see `doc/srs/`), INVEX-API-v1.yaml, project context
 - `apps/classification/` — Python classification service (constant across all iterations)
 - .NET iteration projects will be added starting at Iteration 1
 
@@ -14,7 +14,7 @@ Volatility-exploitation trading system. Research vehicle measuring how AI agents
 
 | Document | Role |
 |---|---|
-| [SRS v2.3.2](doc/srs/INVEX-SRS-v2.3.2.md) | Requirements — what the system must do |
+| [SRS](doc/srs/INVEX-SRS.md) | Requirements — what the system must do |
 | INVEX-API-v1.yaml | External interface contract — message content, format, schemas |
 | AGENTS.md (per component) | Agent context. `CLAUDE.md` exists at each level as a pointer stub so Claude Code's auto-discovery still resolves. |
 

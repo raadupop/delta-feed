@@ -1,7 +1,7 @@
 """
 Fitness function: no dead code / unused symbols in `app/`.
 
-Lineage: Fowler, Refactoring — "Dead Code"; Martelli et al., vulture.
+Lineage: refactoring catalogue — "Dead Code"; Martelli et al., vulture.
 
 Today's expectation: PASS. When Phase B extracts `_compute_temporal_relevance`
 to `app/math/temporal.py`, vulture will fire on any duplicate left behind —

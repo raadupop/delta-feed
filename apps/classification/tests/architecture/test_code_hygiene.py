@@ -3,7 +3,7 @@ Fitness function: ruff reports zero violations against the configured rule set.
 
 Lineage: Ford/Parsons/Kua, *Building Evolutionary Architectures* (2017) — one
 fitness function per architectural dimension, configuration-driven, not
-bug-driven. Rule families (Fowler *Refactoring*, PEP 8, McCabe, Pylint-R,
+bug-driven. Rule families (refactoring-catalogue, PEP 8, McCabe, Pylint-R,
 flake8-simplify/bugbear) and scope are declared in `pyproject.toml` under
 `[tool.ruff]`. This test is agnostic to which rules are enabled; it asserts
 only that the project-configured set is clean.

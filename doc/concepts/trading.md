@@ -4,6 +4,7 @@ Concepts used in INVEX position construction and decision logic, explained from 
 
 **Update log.**
 - 2026-04-23 — initial file (§1: Long Straddle).
+- 2026-04-30 — §2–§4 added (catalyst-relative exit, Vega-crush gate, expected Gamma-Vega ledger) per current SRS EXT-004.
 
 ---
 
@@ -80,3 +81,146 @@ Vega P&L ≈ (IV_new − IV_entry) × (call_vega + put_vega)
 **Contrast with directional spreads (CALL_SPREAD, PUT_SPREAD).** A call spread profits only if the underlying rises past the lower strike. A put spread profits only if it falls past the upper strike. Both cost less than a straddle (you sell one option to partially fund the other), but you must have a directional view. A straddle is more expensive and profits from size of move regardless of direction. INVEX picks between them based on whether the triggering signal is directionally ambiguous or directionally biased.
 
 **Liquidity note.** Not all option markets have the depth a straddle requires. VIX options are liquid enough. OVX options are substantially thinner — bid-ask spreads widen exactly during the high-vol events INVEX wants to trade. The theoretical edge from a 0.85 severity score shrinks or disappears if the fill is 2 points wide. POS-001 must account for available liquidity when sizing legs.
+
+---
+
+## 2. Catalyst-Relative Exit
+
+Exit timing keyed to a known **catalyst** — a scheduled, pre-announced
+event whose outcome will mechanically reprice implied volatility — rather
+than to a fixed clock-time horizon.
+
+**The problem with fixed-horizon exits.** A long straddle entered three
+days before an FOMC meeting and exited "after 5 trading days" prices the
+exit on a calendar that ignores why the position exists. Two failure
+modes:
+
+- *Exiting before the catalyst.* The vega gain INVEX targets is
+  precisely the IV repricing the catalyst forces. Closing before the
+  meeting throws away the trade's reason to exist.
+- *Holding past the catalyst.* Once the catalyst prints, IV typically
+  collapses (see §3, Vega-crush gate). Theta still ticks. Holding past
+  the print means paying the worst part of the vega curve voluntarily.
+
+**The catalyst-relative exit rule (current SRS EXT-004).** Exit timing
+is parameterised relative to a calendar of known catalysts (FOMC, CPI,
+NFP, central-bank decisions, scheduled earnings, OPEC+ announcements).
+For a position whose thesis is *"signal-implied IV is underpriced ahead
+of catalyst X"*:
+
+- Entry occurs `T_entry` units of time before catalyst X (configurable
+  per event class).
+- Exit occurs at `t_X + T_post` — a small, controlled window after the
+  catalyst print, designed to capture the IV-repricing move without
+  overstaying.
+
+**Default `T_post` is short by design.** IV typically reprices in
+minutes-to-hours after a scheduled print, not days. A long `T_post`
+re-introduces the calendar-driven failure modes above.
+
+**What about unscheduled catalysts.** Geopolitical shocks (military
+strike, airstrike, regulatory surprise) are not on the calendar; they
+trigger CLS-003 EVENT_ASSESSMENT signals, not catalyst-relative exits.
+EXT-004 handles them via a separate non-catalyst exit pathway.
+
+---
+
+## 3. Vega-Crush Gate
+
+A pre-trade check that prevents INVEX from holding a long-vega position
+across a scheduled catalyst whose realised IV-repricing is expected to
+be **negative**.
+
+**What IV crush is.** Implied volatility is forward-looking. Ahead of a
+binary scheduled event (an FOMC decision, an earnings print), market
+makers price IV up to compensate for the uncertainty. Once the event
+prints — regardless of direction of the underlying — uncertainty
+collapses, and IV mechanically reprices down. This is *vega crush*: the
+P&L any long-options holder eats simply because the calendar passed
+through the print.
+
+**Why it matters for INVEX.** A long straddle is long vega. If POS-001
+opens a straddle on Tuesday and the position is still open on Wednesday
+afternoon when CPI prints, the straddle's value drops by the *vega ×
+ΔIV_crush* amount on the print, before the underlying has had time to
+move. If the underlying *also* fails to move enough to recover the
+crush, the trade loses the full vega-crush amount on top of theta.
+
+**The gate.** Before opening a long-vega position, EXT-004 compares the
+position's expected holding period against the catalyst calendar:
+
+- If a scheduled catalyst falls inside the holding period **and** the
+  position's vega is positive **and** the signal-implied IV does not
+  exceed market IV by enough to absorb the expected post-print crush,
+  the gate **blocks** the position.
+- If the position is structured to *capture* the IV repricing (entry
+  before catalyst, catalyst-relative exit per §2), the gate permits it
+  — that's the vega-positive trade INVEX wants.
+
+**Gate parameters.** Expected post-event IV crush is sourced from
+historical realised crush distributions for the same indicator class
+(CPI prints, FOMC days, earnings of the same liquidity tier). Not a
+fixed magic number; a per-class calibration that lives in the
+indicator registry alongside `N_L` and `deviation_kind`.
+
+**What the gate does not protect against.** Mid-position
+unscheduled catalysts (a surprise statement between meetings, an
+intra-day geopolitical shock). Those are not on the calendar; the
+exit-side controls (stop-loss, severity-driven re-evaluation) are
+the line of defense.
+
+---
+
+## 4. Expected Gamma–Vega Ledger
+
+A position-level accounting surface introduced in EXT-004 to track the
+**expected** Greek exposures the trade was sized for, against the
+**realised** Greek exposures actually accumulated as the position
+moves through its holding period.
+
+**The two Greeks the ledger tracks.**
+
+- *Vega.* Sensitivity of the position's value to a 1-vol-point change
+  in implied volatility. Long straddles are long vega; the trade thesis
+  for INVEX is "vega gain on IV repricing dominates theta loss." The
+  ledger tracks how much vega the position actually carries each day,
+  given that gamma exposure decays as the underlying moves.
+- *Gamma.* Sensitivity of *delta* to changes in the underlying. A
+  straddle is gamma-long; its delta swings (and thus its instantaneous
+  P&L sensitivity) as the underlying moves around the strike.
+
+**Why a ledger.** A straddle entered ATM with an expected 5-day hold
+has a specific *expected* path through (vega, gamma, theta) space. As
+the position trades, reality diverges:
+
+- Underlying moves away from the strike → gamma collapses, vega declines.
+- Underlying stays at the strike → gamma stays high, but theta accumulates.
+- IV moves (in either direction) → vega P&L realises immediately.
+
+Without a ledger, the position-management decision ("close now? roll?
+hold to catalyst?") is taken against gut feel about *current* Greeks,
+disconnected from what the trade was actually sized for.
+
+**What the ledger records.** Per position, per period:
+
+- *Expected.* `(vega_expected, gamma_expected)` over the planned holding
+  path, derived from the entry conditions plus the catalyst calendar
+  (§2).
+- *Realised.* `(vega_realised, gamma_realised)` measured at end-of-day
+  from the actual position state and current market vol surface.
+- *Divergence.* The two-vector delta. Used by EXT-004 as one of the
+  inputs to the *re-evaluate* path (alongside severity decay and
+  vega-crush gate evaluation).
+
+**Why this is a *ledger* and not just a check.** Aggregated over many
+trades, the divergence series is the empirical answer to *"is INVEX
+sizing positions for the Greek exposure it actually realises?"* If
+realised vega is systematically below expected, the IV repricing
+thesis is not surviving contact with execution — and POS-001's sizing
+formula (or the entry timing) is the place that needs revisiting.
+This is a feedback signal into the harness's Backtest Layer A, not
+just per-position bookkeeping.
+
+**Out of scope for the ledger.** Theta and rho. Theta is deterministic
+and already priced into the entry decision; rho is negligible at INVEX
+holding horizons.

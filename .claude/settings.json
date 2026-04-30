@@ -6,13 +6,11 @@
       "Bash(find /c/Dev/invex/doc -type f \\\\\\(-name *.md -o -name *.txt \\\\\\))",
       "Bash(find /c/Dev/invex -name *SRS* -o -name *srs*)",
       "Edit(/.claude/skills/trader/**)",
-      "Bash(ls -lh /c/Dev/invex/doc/*.docx /c/Dev/invex/doc/*.pdf)",
       "Bash(grep -r \"GeopoliticalPayload\\\\|UnstructuredPayload\" /c/Dev/invex --include=*.py --include=*.yaml --include=*.md)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(find /c/Dev/invex -type f \\\\\\(-name *.pyc -o -name *.pyo -o -name *.egg-info -o -name *.dist-info \\\\\\))",
       "Bash(find /c/Dev/invex -maxdepth 4 -type f ! -path */.venv/* ! -path */__pycache__/* ! -path */.pytest_cache/* ! -path */.claude/*)",
       "Bash(git init:*)",
-      "Bash(pdftotext \"/c/Dev/invex/doc/INVEX-SRS-v2.2.1.pdf\" -)",
       "Read(//temp/readonly/**)",
       "Bash(unzip -o chief-architect.skill -d .claude/skills/)",
       "Edit(/.claude/skills/architect/**)",
@@ -22,12 +20,8 @@
       "Bash(python3 -c ':*)",
       "Bash(python3 --version)",
       "Bash(python --version)",
-      "WebFetch(domain:martinfowler.com)",
+
       "WebFetch(domain:github.com)",
-      "Bash(python -c \"from docx import Document; d=Document\\('doc/INVEX-SRS-v2.3.1.docx'\\); [print\\(p.text\\) for p in d.paragraphs[:80]]\")",
-      "Bash(python -c \"from docx import Document; d=Document\\('../../doc/INVEX-SRS-v2.3.1.docx'\\); [print\\(p.text\\) for p in d.paragraphs[:100]]\")",
-      "Bash(python -c 'from docx import Document; d=Document\\('\\\\''doc/INVEX-SRS-v2.3.1.docx'\\\\''\\);:*)",
-      "Bash(python -c \"import os; print\\(os.path.exists\\('doc/INVEX-SRS-v2.3.1.docx'\\), os.getcwd\\(\\)\\)\")",
       "Bash(python -c ':*)"
     ],
     "additionalDirectories": [

@@ -17,7 +17,7 @@ holds only what lives nowhere else. Everything else is a pointer.
 |---|---|
 | Contract (request/response shapes, score semantics) | [`doc/openapi.yaml`](doc/openapi.yaml) (normative) |
 | Requirements (severity formula, certainty, composite, dislocation, exits) | [SRS](../../doc/srs/INVEX-SRS.md) — see CLS-001, CLS-002, CLS-003, CLS-004, CLS-006, CLS-008, CLS-009, EXT-004 |
-| Harness framework (three layers, oracles, controls) | [`HARNESS.md`](HARNESS.md) |
+| Harness framework (five oracles, `/health` gate, steering loop) | [`HARNESS.md`](HARNESS.md) |
 | Architectural decisions and bug postmortems | [`doc/adr/`](doc/adr/) (Michael Nygard format) — start with [ADR-0003](doc/adr/0003-harness-architecture.md) for the harness, ADR-0001 / ADR-0002 for the calibration story |
 | Trader-curated reference scenarios + band-derivation rule | [`tests/acceptance/fixtures/ANCHORS.md`](tests/acceptance/fixtures/ANCHORS.md) |
 | Indicator registry (per-class `N_L`, `deviation_kind`, `expected_frequency_seconds`) | [`app/registry.py`](app/registry.py) and `data/registry/` (per ADR-0002) |

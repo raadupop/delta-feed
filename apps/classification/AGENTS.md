@@ -5,8 +5,9 @@ Stateless HTTP classification engine. Receives signal payloads from the
 `source_category` + `payload_type`, returns a signed score, certainty,
 and reasoning trace.
 
-Constant infrastructure across all six .NET architecture iterations. Not
-under measurement.
+This service sits inside INVEX (the trading system) and is constant
+infrastructure across all six .NET architecture iterations DeltaFeed
+measures. It is not under measurement.
 
 This file is the agent-context onboarding doc for this component. It
 holds only what lives nowhere else. Everything else is a pointer.
@@ -14,11 +15,13 @@ holds only what lives nowhere else. Everything else is a pointer.
 ## Pointers (canonical sources)
 
 | Concern | Canonical source |
-|---|---|
+| --- | --- |
 | Contract (request/response shapes, score semantics) | [`doc/openapi.yaml`](doc/openapi.yaml) (normative) |
 | Requirements (severity formula, certainty, composite, dislocation, exits) | [SRS](../../doc/srs/INVEX-SRS.md) — see CLS-001, CLS-002, CLS-003, CLS-004, CLS-006, CLS-008, CLS-009, EXT-004 |
-| Harness framework (five oracles, `/health` gate, steering loop) | [`HARNESS.md`](HARNESS.md) |
-| Architectural decisions and bug postmortems | [`doc/adr/`](doc/adr/) (Michael Nygard format) — start with [ADR-0003](doc/adr/0003-harness-architecture.md) for the harness, ADR-0001 / ADR-0002 for the calibration story |
+| Project-wide agent harness architecture | [`../../doc/adr/0001-agent-harness-architecture.md`](../../doc/adr/0001-agent-harness-architecture.md) — the five harness layers, execution model, steering loop. Read first if new to the project. |
+| Per-component harness inventory (this service, all five layers) | [`HARNESS.md`](HARNESS.md) — regenerable runbook |
+| Test-oracle architecture for this service (Layer 4 of the project harness) | [`doc/adr/0003-test-oracle-architecture.md`](doc/adr/0003-test-oracle-architecture.md) — five oracles + `/health` gate |
+| Component architectural decisions and bug postmortems | [`doc/adr/`](doc/adr/) (Michael Nygard format) — ADR-0001 (per-indicator tuning), ADR-0002 (ECDF severity + registry), ADR-0003 (test-oracle architecture) |
 | Trader-curated reference scenarios + band-derivation rule | [`tests/acceptance/fixtures/ANCHORS.md`](tests/acceptance/fixtures/ANCHORS.md) |
 | Indicator registry (per-class `N_L`, `deviation_kind`, `expected_frequency_seconds`) | [`app/registry.py`](app/registry.py) and `data/registry/` (per ADR-0002) |
 

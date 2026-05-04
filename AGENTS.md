@@ -1,24 +1,31 @@
-# INVEX
+# DeltaFeed / INVEX
 
-Volatility-exploitation trading system. Research vehicle measuring how AI agents handle six architecture patterns.
+This repository is two things in one tree:
 
-**Thesis:** "We don't know how to architect systems that are built, maintained, and evolved by AI agents."
+**INVEX** — an event-driven volatility quant engine for detecting market dislocations based on regime shifts.
+
+**DeltaFeed** — a research framework on harness engineering, measuring how AI coding agents perform
+when architecture is treated as a controlled variable.
+
+**Thesis:** how to design scalable system architectures that support real-time financial workflows, autonomous decisioning, and human-in-the-loop AI.
 
 ## Repository Structure
 
-- `doc/` — SRS (Markdown-native, see `doc/srs/`), INVEX-API-v1.yaml, project context
+- `doc/` — SRS (Markdown-native, see `doc/srs/`), INVEX-API-v1.yaml, project-wide ADRs
 - `apps/classification/` — Python classification service (constant across all iterations)
 - .NET iteration projects will be added starting at Iteration 1
 
 ## Document Hierarchy
 
 | Document | Role |
-|---|---|
+| --- | --- |
 | [SRS](doc/srs/INVEX-SRS.md) | Requirements — what the system must do |
-| INVEX-API-v1.yaml | External interface contract — message content, format, schemas |
+| [INVEX-API-v1.yaml](doc/INVEX-API-v1.yaml) | External interface contract — message content, format, schemas |
+| [doc/adr/](doc/adr/) | Project-wide architectural decisions. Start with [ADR-0001](doc/adr/0001-agent-harness-architecture.md) — the agent harness architecture (the system that turns AI agents into reliable autonomous work engines for this project). |
 | AGENTS.md (per component) | Agent context. `CLAUDE.md` exists at each level as a pointer stub so Claude Code's auto-discovery still resolves. |
+| Per-component `doc/adr/` and `HARNESS.md` | Component-specific architectural decisions and the regenerable per-component harness inventory. |
 
-Three separate artifacts. SRS references the OpenAPI spec, not the other way around.
+The SRS references the OpenAPI spec, not the other way around. Component-specific ADRs (e.g. classification's [ADR-0003](apps/classification/doc/adr/0003-test-oracle-architecture.md)) instantiate the project-wide harness layers at each component; they do not re-decide the harness shape.
 
 ## Architecture Iterations
 

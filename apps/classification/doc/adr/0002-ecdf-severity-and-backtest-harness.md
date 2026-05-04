@@ -41,7 +41,7 @@ Three external inputs sharpened the diagnosis:
    mapping.
 2. **`/trader` stress-test of OVX vs VIX under an ECDF replacement.** ECDF
    closes the *scale* gap (VIX 10–80 vs OVX supply-shock tails are
-   normalised by rank within each indicator's own history). It does **not**
+   normalized by rank within each indicator's own history). It does **not**
    close the *non-stationarity / event-clustering* gap: OVX's sparse-event
    history produces false p95 ranks on modest moves off a flat window, and
    autocorrelated post-event ramps mean the second identical shock ranks
@@ -54,7 +54,7 @@ Three external inputs sharpened the diagnosis:
 ## Decision
 
 Three co-decided pieces (the harness layer that originally rode along
-with this ADR is now in [ADR-0003](0003-harness-architecture.md)):
+with this ADR is now in [ADR-0003](0003-test-oracle-architecture.md)):
 
 ### 1. ECDF / percentile-rank mapping for all RULE_BASED strategies
 
@@ -146,7 +146,7 @@ operational approval gate) are documented in the Consequences section below.
 ### 4. Backtest harness — Layer A
 
 The market-reality-oracle backtest layer originally co-decided with the
-ECDF pivot has been promoted to [ADR-0003](0003-harness-architecture.md),
+ECDF pivot has been promoted to [ADR-0003](0003-test-oracle-architecture.md),
 which now owns the harness architecture in full (the three durable
 controls and the three test layers with distinct oracles).
 
@@ -266,7 +266,7 @@ the ECDF formula from the start.
 - CLS-001 severity-formula SRS annex stub (Superseded by SRS):
   [`srs-annex-cls-001-severity-formula.md`](srs-annex-cls-001-severity-formula.md)
 - Limitations cross-reference: [`../../LIMITATIONS.md`](../../LIMITATIONS.md) #1, #3, #4, #5
-- Harness architecture: [ADR-0003](0003-harness-architecture.md); inferable inventory in [`../../HARNESS.md`](../../HARNESS.md)
+- Test-oracle architecture (Layer 4 of the project harness): [ADR-0003](0003-test-oracle-architecture.md); inferable inventory in [`../../HARNESS.md`](../../HARNESS.md); project-wide harness in [`doc/adr/0001-agent-harness-architecture.md`](../../../../doc/adr/0001-agent-harness-architecture.md)
 - `/chief-architect` briefing: `doc/research/chief-architect-briefing-harness-redesign.md`
 - SRS: [`doc/srs/INVEX-SRS.md`](../../../../doc/srs/INVEX-SRS.md)
   (CLS-001, CLS-009, §9 Validation Event Set)

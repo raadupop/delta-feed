@@ -54,7 +54,7 @@ axis the bug lives on.
 
 The harness controls that catch this bug class — the contract layer,
 the acceptance suite, and the fitness-function suite — are documented
-in [ADR-0003](0003-harness-architecture.md). The accepted-risk waiver
+in [ADR-0003](0003-test-oracle-architecture.md). The accepted-risk waiver
 for the two strategy files carrying `_TANH_SCALE` /
 `_EXPECTED_FREQUENCY_SECONDS` is a `per-file-ignores` entry in
 `pyproject.toml` tagged `# TODO(ADR-0001)`. Phase B removes the ignore
@@ -85,7 +85,7 @@ entry and the constants in the same commit.
 ### Trade-off — what was rejected
 
 A YAML model card / signal-calibration spec with attestation hashes was
-considered and rejected as governance theater for a single-operator system.
+considered and rejected as over-engineered for a single-operator system.
 Routine parameter changes require only that the acceptance suite passes; the
 contract is the OpenAPI file, the domain scenarios are `ANCHORS.md`.
 
@@ -110,6 +110,6 @@ and the INITIAL_CLAIMS anchor flips from xfail to pass.
 - Source lines at time of bug discovery:
   - `apps/classification/app/strategies/market_data.py:20, 24, 27-36`
   - `apps/classification/app/strategies/macroeconomic.py:19, 23, 26-33`
-- Harness architecture: [ADR-0003](0003-harness-architecture.md); inferable inventory in [`HARNESS.md`](../../HARNESS.md)
+- Test-oracle architecture (Layer 4 of the project harness): [ADR-0003](0003-test-oracle-architecture.md); inferable inventory in [`HARNESS.md`](../../HARNESS.md); project-wide harness in [`doc/adr/0001-agent-harness-architecture.md`](../../../../doc/adr/0001-agent-harness-architecture.md)
 - Contract: `apps/classification/doc/openapi.yaml`
 - ADR format: Michael Nygard, *Documenting Architecture Decisions* (2011)

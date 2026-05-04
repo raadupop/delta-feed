@@ -1,16 +1,27 @@
-# DeltaFeed
-
 A two-part repository:
 
-- **INVEX** — a volatility-exploitation trading system (the carrier)
-- **DeltaFeed** — a research harness measuring how AI coding agents perform
-  when architecture is treated as a controlled variable
+**INVEX** — an event-driven volatility quant engine for detecting market dislocations based on regime shifts.
 
-INVEX exists so DeltaFeed has something real to measure. A toy example
-produces toy results; a production-shaped system with a stable external
-contract, live data feeds, and domain-informed acceptance criteria exposes
-the decisions agents actually struggle with — wrong-level abstractions,
-contract drift, shortcut refactors across module boundaries.
+**DeltaFeed** — a research framework on harness engineering, measuring how AI coding agents perform
+when architecture is treated as a controlled variable.
+
+INVEX is the production-grade benchmark system that DeltaFeed evaluates to measure:
+
+* **Architectural Compatibility:** Distinguishing between AI-ready and AI-hostile design rules.
+* **Self-Correction Effectiveness:** The reliability of AI retry protocols.
+* **Context Integrity:** Bounded context isolation during AI-driven, cross-boundary modifications.
+* **Migration Accuracy:** The precision of architectural changes executed by AI agents.
+* **Development Viability:** The operational and economic impact of AI-assisted development.
+
+
+This is a real system with a stable external contract, live data feeds, and 
+domain-informed acceptance criteria exposes the decisions agents actually struggle
+with: wrong-level abstractions, deterministic vs. probabilistic boundaries, contract drift, 
+shortcut refactors across module boundaries.
+
+The project thesis: how to design scalable system architectures that
+support real-time financial workflows, increased autonomous decisioning, and
+human-in-the-loop AI.
 
 ---
 
@@ -129,9 +140,10 @@ overview in [apps/classification/HARNESS.md](apps/classification/HARNESS.md).
 ## Further reading
 
 - [AGENTS.md](AGENTS.md) — repository-level conventions for AI agents
+- [doc/adr/0001-agent-harness-architecture.md](doc/adr/0001-agent-harness-architecture.md) — project-wide agent harness architecture (the system that turns AI agents into reliable autonomous work engines for INVEX)
 - [apps/classification/AGENTS.md](apps/classification/AGENTS.md) — service-local conventions
-- [apps/classification/HARNESS.md](apps/classification/HARNESS.md) — harness framework and test inventory
-- [apps/classification/doc/adr/](apps/classification/doc/adr/) — architectural decision records
+- [apps/classification/HARNESS.md](apps/classification/HARNESS.md) — per-component harness inventory across all five layers
+- [apps/classification/doc/adr/](apps/classification/doc/adr/) — component architectural decision records (incl. [ADR-0003](apps/classification/doc/adr/0003-test-oracle-architecture.md) — test-oracle architecture)
 - [doc/srs/INVEX-SRS.md](doc/srs/INVEX-SRS.md) — full requirements
 
 - [doc/INVEX-API-v1.yaml](doc/INVEX-API-v1.yaml) — external .NET API contract

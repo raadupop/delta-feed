@@ -192,10 +192,9 @@ to its tech stack and risk profile.
 
 #### The autonomy ceiling
 
---- Clarify ---
 No system of automated oracles can fully verify itself. Each oracle
-catches a class of bugs based on an assumptions that needs
-external validation (window choice, ground-truth source
+catches a class of bugs but introduces assumptions that themselves
+need external validation (window choice, ground-truth source
 integrity, normalization, regime-conditioning). This limit is
 structural, not a defect to be fixed.
 

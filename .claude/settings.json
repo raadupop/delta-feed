@@ -35,5 +35,37 @@
       "Bash(git *)"
     ]
   },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash .claude/hooks/check-py.sh",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash .claude/hooks/fixture-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash .claude/hooks/stop-pytest.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
   "autoMemoryEnabled": false
 }

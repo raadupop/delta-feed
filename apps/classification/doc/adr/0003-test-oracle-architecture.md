@@ -244,8 +244,9 @@ answer to the self-validating-loop class.
 - **Service-layer metamorphic tests.** Deferred to the math-library
   layer if and when one is extracted under `app/math/`.
 - **Mutation testing in the per-commit loop.** A nightly
-  `mutmut`-on-`app/strategies/*` sensor-of-sensors is a candidate
-  future control, not part of the locked architecture today.
+  `mutmut`-on-`app/strategies/*` pass — a meta-check on the test
+  suite itself — is a candidate future control, not part of the
+  locked architecture today.
 - **Coverage-threshold gating.** See trade-offs.
 - **AI-judged oracles.** Layer A is statistical, not LLM-based.
 

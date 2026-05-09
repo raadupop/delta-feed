@@ -1,0 +1,150 @@
+# ToDo registry — forward work for INVEX / DeltaFeed.
+#
+# This file is the single source of truth for open tasks across the project.
+# Anything that does not belong in an ADR (per
+# doc/conventions/adr-discipline.md) and is not current-state inventory
+# (HARNESS.md) lives here.
+#
+# Schema is documented in doc/todo/README.md and intended for future MCP
+# integration with a task-management tool.
+
+schema_version: 1
+
+todos:
+
+  - id: TODO-001
+    title: Implement v2.3.3 signed-score axiom (vol compression negative)
+    status: open
+    priority: high
+    owner: radu
+    source:
+      kind: srs
+      ref: CLS-001
+    related_adr: []
+    related_test: apps/classification/tests/acceptance/test_signed_score_axioms.py::test_vol_compression_returns_negative_score
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      The classification suite is currently red on this axiom. The harness
+      will surface it on every Stop with edits and escalate as
+      escalate:stuck on the second attempt. Closing this unblocks
+      uninterrupted harness operation.
+
+  - id: TODO-002
+    title: Wire PostToolUse reminder for /statistician on strategy / severity-formula edits
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Concrete trigger map (row 3)"
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      Trigger map row currently NOT YET CONFIGURED. Implement as a
+      .claude/hooks/ adapter following the existing fixture-reminder.sh
+      pattern.
+
+  - id: TODO-003
+    title: Wire PostToolUse reminder for /trader + /risk-officer on registry edits
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Concrete trigger map (row 4)"
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      Triggers on Edit/Write of app/registry.py or infra/registry.yaml.
+
+  - id: TODO-004
+    title: Wire PostToolUse reminder for /chief-architect on new ADR file
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Concrete trigger map (row 5)"
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+
+  - id: TODO-005
+    title: Wire PostToolUse reminder for /adversary on new LIMITATIONS entry
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Concrete trigger map (row 6)"
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+
+  - id: TODO-006
+    title: Add CI workflow invoking harness/check-suite.sh
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Sequencing step 3"
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      Defence in depth: harness runs on push/PR even when local hooks are
+      bypassed. CI invokes the oracle layer directly (no agent payload
+      required, since it is pure code-state).
+
+  - id: TODO-007
+    title: Update apps/classification/HARNESS.md to reference wired Layer 4 implementation
+    status: open
+    priority: low
+    owner: radu
+    source:
+      kind: harness-inventory
+      ref: apps/classification/HARNESS.md
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      Per ADR-0001, HARNESS.md is the regenerable inventory of layers as
+      instantiated at the component. With the harness/ + .claude/hooks/
+      split now wired, HARNESS.md should reference the three components
+      (adapter / steering manager / oracle scripts) for the classification
+      service.
+
+  - id: TODO-008
+    title: Optional ADR-0002 capturing steering-loop mechanics
+    status: open
+    priority: low
+    owner: radu
+    source:
+      kind: design-followup
+      ref: harness/STEERING.md
+    related_adr: [ADR-0001]
+    created: 2026-05-09
+    updated: 2026-05-09
+    blocked_by: []
+    notes: >
+      ADR-0001 locks the harness shape. The mechanics of the steering loop
+      (three-component split, convergence rationale, agent-portability
+      story) are documented in harness/STEERING.md but not in an ADR.
+      Optional — write only if a second component or second agent makes the
+      reasoning worth re-locking.

@@ -9,7 +9,7 @@ You are a system architect with deep expertise in the patterns INVEX measures: T
 
 ## INVEX Context
 
-DeltaFeed is the research instrument; INVEX is the trading system being measured. DeltaFeed studies how AI agents handle six architecture patterns by reimplementing INVEX under each. The thesis: "how to design scalable system architectures that support real-time financial workflows, autonomous decisioning, and human-in-the-loop AI."
+DeltaFeed is the research instrument; INVEX is the trading system being measured. DeltaFeed studies how AI agents handle six architecture patterns by reimplementing INVEX under each. See [README.md](../../../README.md) and [AGENTS.md](../../../AGENTS.md) for the canonical framing.
 
 ### The 6 Iterations
 

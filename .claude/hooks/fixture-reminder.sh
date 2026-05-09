@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Edit|Write on anchor fixtures.
-# Reminds the agent of the band-derivation rule + sign-off path. Advisory
-# only; never blocks.
+# Adapter (Claude Code): PostToolUse on Edit|Write of anchor fixtures.
+# Reads CC's stdin payload, scope-filters, delegates to
+# harness/fixture-reminder.sh, wraps output as CC additionalContext.
+# Advisory only; never blocks.
 #
-# Wired by .claude/settings.json. See doc/adr/0001-agent-harness-architecture.md
-# §"Concrete trigger map" and apps/classification/tests/acceptance/fixtures/ANCHORS.md.
+# Wired by .claude/settings.json. See harness/ORACLE.md.
+
+set -u
 
 f=$(jq -r '.tool_input.file_path // empty')
 [ -n "$f" ] || exit 0
@@ -12,12 +14,17 @@ f=$(jq -r '.tool_input.file_path // empty')
 norm=$(printf '%s' "$f" | tr '\\' '/')
 case "$norm" in
   */apps/classification/tests/acceptance/fixtures/*.json) ;;
+  apps/classification/tests/acceptance/fixtures/*.json) ;;
   *) exit 0 ;;
 esac
 
-jq -n '{
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+
+text=$("$repo_root/harness/fixture-reminder.sh" "$f" 2>&1) || exit 0
+
+jq -n --arg t "$text" '{
   hookSpecificOutput: {
     hookEventName: "PostToolUse",
-    additionalContext: "FIXTURE CHANGED. Per ANCHORS.md, expected band MUST derive from the SRS formula (CLS-001 ECDF rank), not from current implementation output. Source values MUST cite a verifiable public provider (FRED, BLS, etc.) with a retrieved_at timestamp. Invoke /trader and /statistician for band-derivation sign-off before claiming the fixture complete."
+    additionalContext: $t
   }
 }'

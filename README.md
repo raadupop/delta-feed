@@ -13,16 +13,6 @@ INVEX is the production-grade benchmark system that DeltaFeed evaluates to measu
 * **Migration Accuracy:** The precision of architectural changes executed by AI agents.
 * **Development Viability:** The operational and economic impact of AI-assisted development.
 
-
-This is a real system with a stable external contract, live data feeds, and 
-domain-informed acceptance criteria exposes the decisions agents actually struggle
-with: wrong-level abstractions, deterministic vs. probabilistic boundaries, contract drift, 
-shortcut refactors across module boundaries.
-
-The project thesis: how to design scalable system architectures that
-support real-time financial workflows, increased autonomous decisioning, and
-human-in-the-loop AI.
-
 ---
 
 ## DeltaFeed — the research instrument

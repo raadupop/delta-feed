@@ -32,6 +32,10 @@ coverage.xml
 # Claude Code (user-local only — shared settings.json is committed)
 .claude/settings.local.json
 
+# Harness state (per-session, transient — see harness/STEERING.md)
+.harness-state/*.json
+.harness-state/decisions.log
+
 # OS
 .DS_Store
 Thumbs.db

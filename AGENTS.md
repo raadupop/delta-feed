@@ -7,8 +7,6 @@ This repository is two things in one tree:
 **DeltaFeed** — a research framework on harness engineering, measuring how AI coding agents perform
 when architecture is treated as a controlled variable.
 
-**Thesis:** how to design scalable system architectures that support real-time financial workflows, autonomous decisioning, and human-in-the-loop AI.
-
 ## Repository Structure
 
 - `doc/` — SRS (Markdown-native, see `doc/srs/`), INVEX-API-v1.yaml, project-wide ADRs

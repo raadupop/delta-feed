@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Edit|Write on apps/classification/app/**/*.py.
-# Runs targeted ruff + mypy on the changed file. On red, blocks turn
-# completion and surfaces tool output to the agent.
+# Adapter (Claude Code): PostToolUse on Edit|Write.
+# Reads CC's stdin payload, scope-filters to apps/classification/app/*.py,
+# delegates to harness/check-py.sh, wraps red as CC block JSON.
 #
-# Wired by .claude/settings.json. See doc/adr/0001-agent-harness-architecture.md
-# §"Concrete trigger map" and §"Sequencing to close the gap".
+# Wired by .claude/settings.json. See harness/ORACLE.md.
+
+set -u
 
 f=$(jq -r '.tool_input.file_path // empty')
 [ -n "$f" ] || exit 0
 
 norm=$(printf '%s' "$f" | tr '\\' '/')
 case "$norm" in
-  */apps/classification/app/*.py) rel=${norm##*/apps/classification/} ;;
+  */apps/classification/app/*.py) ;;
+  apps/classification/app/*.py) ;;
   *) exit 0 ;;
 esac
 
-cd apps/classification || exit 0
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 
-ruff_out=$(ruff check "$rel" 2>&1); ruff_rc=$?
-mypy_out=$(mypy "$rel" 2>&1); mypy_rc=$?
+out=$("$repo_root/harness/check-py.sh" "$f" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && exit 0
 
-if [ "$ruff_rc" -ne 0 ] || [ "$mypy_rc" -ne 0 ]; then
-  printf 'ruff:\n%s\n\nmypy:\n%s' "$ruff_out" "$mypy_out" \
-    | jq -Rs --arg rel "$rel" '{
-        decision: "block",
-        reason: ("Lint/type errors in " + $rel + ":\n" + .)
-      }'
-fi
+printf '%s' "$out" \
+  | jq -Rs --arg f "$f" '{
+      decision: "block",
+      reason: ("Lint/type errors in " + $f + ":\n" + .)
+    }'

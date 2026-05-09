@@ -7,14 +7,7 @@
 - **Relates to:** [classification ADR-0001](../../apps/classification/doc/adr/0001-per-indicator-tuning-parameters.md), [classification ADR-0002](../../apps/classification/doc/adr/0002-ecdf-severity-and-backtest-harness.md), [classification ADR-0003](../../apps/classification/doc/adr/0003-test-oracle-architecture.md)
 
 This ADR locks the **agent harness architecture** for the project as a
-whole. The architecture answers the project thesis stated in
-[AGENTS.md](../../AGENTS.md). DeltaFeed is the research instrument;
-INVEX is the trading system being measured. Every component — the
-Python classification service today, the six .NET iterations to come
-— instantiates the same harness shape with component-specific
-mechanics.
-
-This ADR covers the harness as a system: what it is, what its layers
+whole — covering the harness as a system: what it is, what its layers
 are, how they are triggered, who fires what when. Component-specific
 test-oracle architectures (e.g. classification's five oracles + G1
 gate) are locked in their own per-component ADRs and reference this
@@ -74,10 +67,11 @@ prior context. Terms that recur are defined once, plainly:
 
 ## Context
 
-DeltaFeed measures how AI agents handle six distinct architecture
-patterns ([AGENTS.md](../../AGENTS.md)). INVEX, the carrier system,
-is reimplemented under each pattern; the Python classification
-service is constant infrastructure across all six .NET iterations.
+DeltaFeed measures how AI agents handle architecture transitions
+([AGENTS.md](../../AGENTS.md)). INVEX, the carrier system,
+is reimplemented or evolve under different paradigm; the Python classification
+service is constant infrastructure across all.
+
 Most code changes — implementation and tests — are proposed by AI
 agents in one pass.
 
@@ -279,13 +273,13 @@ Specific file-path and action triggers:
 | --- | --- | --- |
 | Session start | Auto-load AGENTS.md (root) → AGENTS.md (component) → relevant ADRs | Harness (Claude Code auto-discovery — already wired) |
 | Tool call | Permission check against `.claude/settings.json` allowlist | Harness (already wired) |
-| `Edit/Write` on `apps/*/app/**/*.py` | Targeted `ruff check` + `mypy` on the file | Harness (PostToolUse hook — NOT YET CONFIGURED) |
-| `Edit/Write` on `apps/*/tests/acceptance/fixtures/*.json` | Stdout reminder to invoke `/trader` + `/statistician` for band-derivation review | Harness (PostToolUse hook — NOT YET CONFIGURED) |
+| `Edit/Write` on `apps/*/app/**/*.py` | Targeted `ruff check` + `mypy` on the file | Harness (PostToolUse hook — wired; see [`.claude/hooks/check-py.sh`](../../.claude/hooks/check-py.sh) → [`harness/check-py.sh`](../../harness/check-py.sh)) |
+| `Edit/Write` on `apps/*/tests/acceptance/fixtures/*.json` | Stdout reminder to invoke `/trader` + `/statistician` for band-derivation review | Harness (PostToolUse hook — wired; see [`.claude/hooks/fixture-reminder.sh`](../../.claude/hooks/fixture-reminder.sh) → [`harness/fixture-reminder.sh`](../../harness/fixture-reminder.sh)) |
 | `Edit/Write` on a strategy / severity-formula file | Stdout reminder to invoke `/statistician` for formula correctness | Harness (PostToolUse hook — NOT YET CONFIGURED) |
 | `Edit/Write` on `app/registry.py` or `infra/registry.yaml` | Stdout reminder to invoke `/trader` + `/risk-officer` | Harness (PostToolUse hook — NOT YET CONFIGURED) |
 | New file under any `doc/adr/` | Stdout reminder to invoke `/chief-architect` for ADR review | Harness (PostToolUse hook — NOT YET CONFIGURED) |
 | New entry in any `LIMITATIONS.md` | Stdout reminder to invoke `/adversary` to challenge gap acceptance | Harness (PostToolUse hook — NOT YET CONFIGURED) |
-| Agent attempts to terminate a turn | `pytest tests/ -x --tb=line` from the affected component | Harness (Stop hook — NOT YET CONFIGURED) |
+| Agent attempts to terminate a turn | Bounded self-correction loop with convergence detection (full pytest, classification component) | Harness (Stop hook — wired; see [`.claude/hooks/stop-pytest.sh`](../../.claude/hooks/stop-pytest.sh) → [`harness/steer.sh`](../../harness/steer.sh) → [`harness/check-suite.sh`](../../harness/check-suite.sh)) |
 | Pytest red observed | Steering-loop reasoning protocol (Case A) | Agent reads output; agent classifies per AGENTS.md convention |
 | Bug observed despite green pytest (Case B) | Operator or specialist raises issue; ADR or LIMITATIONS entry | External — see ceiling above |
 | Pre-commit | Operator reads agent output and final diff | Operator |
@@ -333,36 +327,33 @@ gaps are not a permitted state.**
 The agent looking only at green pytest output cannot autonomously
 detect Case B. This is the ceiling named in Layer 4.
 
-### Concrete hooks the harness needs (NOT YET BUILT)
+### Concrete hook implementation
 
-These are the hooks the architecture commits to. To be added in
-`.claude/settings.json`:
+The hooks the architecture committed to are wired across three components,
+not as inline shell in `.claude/settings.json`:
 
-```jsonc
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": {"tool": "Edit|Write", "filePathPattern": "apps/classification/app/.*\\.py"},
-        "hooks": [{"type": "command",
-                   "command": "cd apps/classification && ruff check ${CLAUDE_FILE_PATH} && mypy ${CLAUDE_FILE_PATH}"}]
-      },
-      {
-        "matcher": {"tool": "Edit|Write",
-                    "filePathPattern": "apps/classification/tests/acceptance/fixtures/.*\\.json"},
-        "hooks": [{"type": "command",
-                   "command": "echo 'FIXTURE CHANGED. Per ANCHORS.md, band must derive from SRS CLS-001 and source values must cite a public provider. Invoke /trader and /statistician for sign-off before claiming complete.'"}]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [{"type": "command",
-                   "command": "cd apps/classification && pytest tests/ -x --tb=line"}]
-      }
-    ]
-  }
-}
-```
+- **Adapter layer** — `.claude/hooks/{check-py,fixture-reminder,stop-pytest}.sh`.
+  Per-agent (Claude Code today). Reads the runtime's hook payload, scope-filters,
+  delegates to the harness, and wraps any output as the agent's protocol JSON.
+  ~20 LOC each. Replacing the agent (Cursor, Codex, Copilot) is one new
+  adapter set; the rest of the harness is unchanged.
+- **Steering manager** — [`harness/steer.sh`](../../harness/steer.sh). Agent-
+  agnostic. Owns per-turn state at `.harness-state/<session>.json`. Implements
+  a bounded self-correction loop with convergence detection: at most one
+  block-on-red per turn, with retry across attempts gated on whether the
+  failing-test fingerprint changed. Termination guaranteed across `green` /
+  `skip:no_edits` / `escalate:stuck` / `escalate:budget_exhausted`. Contract:
+  [`harness/STEERING.md`](../../harness/STEERING.md).
+- **Oracle scripts** — [`harness/check-suite.sh`](../../harness/check-suite.sh)
+  (full pytest with `--changed-only`), [`harness/check-py.sh`](../../harness/check-py.sh)
+  (ruff + mypy on a single file), [`harness/fixture-reminder.sh`](../../harness/fixture-reminder.sh)
+  (advisory text). Pure functions of code state — no JSON, no agent
+  awareness, no side effects. Contract:
+  [`harness/ORACLE.md`](../../harness/ORACLE.md).
+
+`.claude/settings.json` wires PostToolUse to the two adapter scripts
+(`check-py.sh`, `fixture-reminder.sh`) and Stop to `stop-pytest.sh`. See the
+trigger-map row entries above for the exact mapping.
 
 ### Concrete AGENTS.md conventions (NOT YET WRITTEN)
 
@@ -390,26 +381,40 @@ To be added to project-root and per-component AGENTS.md:
   unallowlisted calls.
 - **Layer 2 (cognitive tools)**: operator-invoked, no convention
   prompting recommendation. The agent does not surface "you should
-  invoke /trader here" because no convention tells it to.
-- **Layer 4 (feedback oracles)**: operator-manual `pytest`. This is
-  the largest gap: a regression reaches `master` if the operator
-  forgets to run it.
+  invoke /trader here" because no convention tells it to. The
+  fixture-edit reminder is the one exception, surfaced by the
+  PostToolUse hook.
+- **Layer 4 (feedback oracles)**: harness-automated for the wired
+  triggers — PostToolUse runs targeted ruff + mypy on edited Python
+  files and surfaces the fixture-edit reminder; Stop runs the full
+  pytest via the bounded self-correction loop. The four remaining
+  trigger-map rows (strategy/severity-formula, registry, new ADR, new
+  LIMITATIONS entry) are still NOT YET CONFIGURED.
 - **Layer 5 (decision durability)**: operator-prompted. ADRs and
   `LIMITATIONS.md` entries get written when explicitly asked, not
   when the steering loop dictates they should.
 
 ### Sequencing to close the gap (this ADR commits to it)
 
-1. **First.** Add the hooks above to `.claude/settings.json`. This
-   converts Layer 4 from operator-manual to harness-automated — the
-   biggest single autonomy lift. PostToolUse runs targeted lints/types;
-   Stop runs full pytest before turn termination.
-2. **Second.** Add the AGENTS.md conventions above. This wires the
-   agent into the steering loop (Case A reasoning) and into surfacing
-   skill-invocation reminders to the operator.
-3. **Third.** Add a CI workflow (GitHub Actions) so the harness runs
-   even when local hooks are bypassed. Defence in depth, not a
-   replacement for hooks.
+1. **First — DONE.** The PostToolUse and Stop hooks are wired via the
+   three-component split (adapter / steering manager / oracle scripts)
+   described above. Layer 4 is harness-automated for the wired
+   triggers. The Stop loop adds convergence detection, so red the
+   agent cannot fix in one retry surfaces to the operator instead of
+   trapping.
+2. **Second — partially done.** The fixture-edit skill-invocation
+   reminder is surfaced by the harness mechanism (PostToolUse). The
+   remaining AGENTS.md conventions originally listed here largely
+   overlap with what the harness now enforces in-band (the agent
+   reads the harness-surfaced report rather than running pytest
+   itself). Case A/B classification protocol is anchored in
+   §"Steering loop" of this ADR; the agent reads ADR-0001 directly
+   when blocked. The four unwired trigger-map rows remain future work.
+3. **Third — future.** Add a CI workflow (GitHub Actions) so the
+   harness runs even when local hooks are bypassed. Defence in depth,
+   not a replacement for hooks. CI invokes
+   [`harness/check-suite.sh`](../../harness/check-suite.sh) directly
+   (no agent payload required, since the oracle layer is pure).
 
 These three steps are the work this ADR commits to. Subsequent ADRs
 may refine hook contents or CI shape; the commitment to autonomous
@@ -461,26 +466,6 @@ extend per-component via `.claude/settings.local.json` and convention.
   quantitative-methods decision (`/trader` + `/statistician`), not
   architecture; novel bug classes will require new oracles (future
   ADRs) or specialist review.
-
-## Cost of being wrong
-
-- **Five layers turns out to be four plus one redundant.**
-  Reversible: collapse via superseding ADR. Cheap to undo.
-- **A sixth layer is needed** (e.g. an *agent reflection* layer
-  where the agent self-critiques the diff before turn termination).
-  Reversible: add via superseding ADR. Cost: one missed failure
-  mode until observed.
-- **The trigger map over-prompts the operator.** Every fixture edit
-  fires a reminder; alarm fatigue. Mitigation: hooks tunable
-  per-path; superseding ADR shrinks the map.
-- **The autonomy ceiling is misread as a gap and someone tries to
-  close it with more oracles.** Mitigation: this ADR names the
-  ceiling explicitly so a future contributor does not propose another
-  oracle layer to catch what cannot be caught autonomously.
-- **Skills layer is mis-configured (wrong skill list, missing
-  domain expertise).** Cost: bug class slips because no skill catches
-  it. Reversible: add skill via superseding ADR; the discipline of
-  Case B → ADR makes the gap discoverable.
 
 ## Out of scope
 

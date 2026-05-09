@@ -148,3 +148,24 @@ todos:
       story) are documented in harness/STEERING.md but not in an ADR.
       Optional — write only if a second component or second agent makes the
       reasoning worth re-locking.
+
+  - id: TODO-009
+    title: Wire cognitive-skill reminder on SRS section edits
+    status: open
+    priority: medium
+    owner: radu
+    source:
+      kind: adr
+      ref: ADR-0001
+      section: "Context — upstream cause 3"
+    related_adr: [ADR-0001]
+    created: 2026-05-10
+    updated: 2026-05-10
+    blocked_by: []
+    notes: >
+      ADR-0001 Context names cognitive review on SRS authoring as the
+      upstream gap that enabled both demonstrated failures. Implement as
+      a PostToolUse adapter on Edit/Write of doc/srs/*.md, surfacing a
+      reminder to invoke /trader and /statistician before claiming the
+      SRS section complete. Mirror the existing fixture-reminder.sh
+      shape.

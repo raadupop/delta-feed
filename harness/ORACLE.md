@@ -55,11 +55,11 @@ Emits the fixture-changed reminder text for an anchor fixture path. Advisory.
 - Stdout: reminder paragraph.
 - Exit code: always `0`.
 
-## Reproducibility guarantee
+## Determinism guarantee
 
 Two consecutive invocations with no edits in between MUST produce identical
-output and identical exit codes. This is what makes the oracle a measurement
-instrument and not a heuristic.
+output and identical exit codes. Without this property, the oracle is a
+heuristic, not a check.
 
 ## What does NOT belong here
 

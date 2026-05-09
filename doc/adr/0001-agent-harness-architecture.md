@@ -67,29 +67,58 @@ prior context. Terms that recur are defined once, plainly:
 
 ## Context
 
-DeltaFeed measures how AI agents handle architecture transitions
-([AGENTS.md](../../AGENTS.md)). INVEX, the carrier system,
-is reimplemented or evolve under different paradigm; the Python classification
-service is constant infrastructure across all.
-
 Most code changes — implementation and tests — are proposed by AI
 agents in one pass.
 
-Two failure modes are demonstrated, not hypothetical, both at the
-classification service:
+Two failure modes are demonstrated, both at the classification service.
 
-- **Wrong-level abstraction** (classification ADR-0001). Per-strategy
-  module-level constants were invisible to the test suite because
-  every strategy under test had only one indicator. Homogeneous
-  inputs hid the per-indicator-vs-per-strategy collapse.
-- **Self-validating loop** (classification ADR-0002). During a
-  four-fixture axis-coverage exercise, an agent writing both the
-  implementation and the expected bands in one pass encoded the same
-  wrong assumption in both, and the SRS-anchored oracle accepted it.
+**Failure 1 — wrong-level abstraction (classification ADR-0001).** The
+classifier declared tuning constants like `_TANH_SCALE` and
+`_EXPECTED_FREQUENCY_SECONDS` once per strategy module
+(`market_data.py`, `macroeconomic.py`). These constants are properties
+of indicators, not of strategies: VIX trades intraday, CPI releases
+monthly, INITIAL_CLAIMS weekly. Encoding them per strategy is a
+modelling error. The test suite did not catch it because every strategy
+under test had exactly one indicator — under that input shape, a
+per-strategy constant produces the same output as a per-indicator one.
 
-Common diagnosis: a single oracle is not enough. Bugs that live on
-an axis the oracle does not see require a different oracle, not more
-tests of the same kind. The harness is the architectural answer.
+**Failure 2 — bands derived from execution, not from the spec
+(classification ADR-0002).** During an axis-coverage exercise, an agent
+authored both the strategy code and the corresponding expected-band
+fixtures in one pass. The agent ran the implementation, captured its
+output, and stored that output as the test's expected band. The
+fixtures were not derived from CLS-001 on paper, and no specialist
+re-derived them independently. Tests passed because they asserted the
+implementation's output back at itself; the SRS-anchored oracle was
+satisfied by tautology.
+
+**What we caught upstream of the code.** Three causes enabled both
+failures. The list is what this analysis identified, not a claim of
+exhaustiveness.
+
+1. **Qualitative SRS.** CLS-001 was prose-only ("severity is
+   quantified; certainty has two independent dimensions combined
+   somehow"). With no formula in the spec, an agent can encode any
+   formula in the implementation and any band in the test, and both
+   pass trivially.
+2. **Test infrastructure without axis variance.** Fixtures were
+   designed in the same workflow that produced the implementation:
+   one indicator per strategy in the input set, and the formula's own
+   output as the reference band. No independent oracle; no input
+   variation along the axis the bug lived on.
+3. **Cognitive skills engaged retrospectively, not proactively.** The
+   skills layer (`/trader`, `/statistician`, `/risk-officer`) was not
+   part of SRS authoring or fixture design. Both bugs were caught only
+   after the operator manually invoked `/trader` outside the
+   application's normal flow — in the second case, after the operator
+   computed the bands in a separate worksheet and noticed the
+   mismatch. Without that out-of-band intervention, both failures
+   would have stayed green on every automated oracle.
+
+Common diagnosis: more oracles on the code do not catch these. Both
+failures were enabled before the agent wrote a line of code, by
+upstream artefacts (the SRS, the test fixtures) authored without
+independent review.
 
 Operating constraints shape the response:
 

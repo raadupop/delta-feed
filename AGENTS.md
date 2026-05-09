@@ -2,10 +2,9 @@
 
 This repository is two things in one tree:
 
-**INVEX** — an event-driven volatility quant engine for detecting market dislocations based on regime shifts.
+**INVEX** — an event-driven volatility quant engine. It trades the gap between its implied-volatility forecast and observed implied volatility via convex options, sized to cap downside at allocated capital.
 
-**DeltaFeed** — a research framework on harness engineering, measuring how AI coding agents perform
-when architecture is treated as a controlled variable.
+**DeltaFeed** — a research framework on harness engineering: the practice of wrapping the probabilistic behavior of AI coding agents with deterministic engineering constraints (architecture, steering loops, fitness functions, contract gates).
 
 ## Repository Structure
 
@@ -19,7 +18,7 @@ when architecture is treated as a controlled variable.
 | --- | --- |
 | [SRS](doc/srs/INVEX-SRS.md) | Requirements — what the system must do |
 | [INVEX-API-v1.yaml](doc/INVEX-API-v1.yaml) | External interface contract — message content, format, schemas |
-| [doc/adr/](doc/adr/) | Project-wide architectural decisions. Start with [ADR-0001](doc/adr/0001-agent-harness-architecture.md) — the agent harness architecture (the system that turns AI agents into reliable autonomous work engines for this project). |
+| [doc/adr/](doc/adr/) | Project-wide architectural decisions. Start with [ADR-0001](doc/adr/0001-agent-harness-architecture.md) — the agent harness architecture (five layers — context, cognitive tools, permissions, feedback oracles, decision durability). |
 | AGENTS.md (per component) | Agent context. `CLAUDE.md` exists at each level as a pointer stub so Claude Code's auto-discovery still resolves. |
 | Per-component `doc/adr/` and `HARNESS.md` | Component-specific architectural decisions and the regenerable per-component harness inventory. |
 

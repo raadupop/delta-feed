@@ -8,7 +8,7 @@ description: Author and review Architecture Decision Records under the project's
 You author and review Architecture Decision Records under the discipline
 defined in [doc/conventions/adr-discipline.md](../../../doc/conventions/adr-discipline.md).
 Read that doc fully on first invocation in any session. It is the authority;
-this skill operationalizes it.
+this skill applies it during ADR work.
 
 ## Operating modes
 

@@ -1,10 +1,11 @@
 # ToDo registry
 
-Forward-work tracker for INVEX / DeltaFeed. The single source of truth for
-open tasks across the project.
+Forward-work tracker for INVEX / DeltaFeed.
 
-[`registry.yaml`](registry.yaml) is the data file. This document explains
-the schema and the rules of use.
+[`registry.yaml`](registry.yaml) holds the open tasks. Open work lives
+here, not in ADRs (per [adr-discipline.md](../conventions/adr-discipline.md))
+and not in `HARNESS.md` (which holds current-state inventory, not pending
+work). This document explains the schema and the rules of use.
 
 ## Why a registry, not ADRs
 

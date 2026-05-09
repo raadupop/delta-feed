@@ -81,6 +81,41 @@ Either the decision still stands and the limitation is captured in
 `LIMITATIONS.md` per component, or it doesn't and a new superseding ADR is
 written.
 
+## Prose conventions
+
+ADRs are read by people who do not know the system. The Context and
+Consequences sections in particular are the entry points for that reader.
+The conventions below are not style preferences — they determine whether
+the ADR is informative or noise.
+
+- **Cold-reader test.** Every claim must be groundable for a fresh reader
+  who lacks project context. Translate jargon shortcuts on first use: not
+  "per-strategy module-level constants", but "constants like `_TANH_SCALE`
+  declared once per strategy module".
+- **Name what happened.** Prefer mechanism over summary. "Agent encoded
+  the same wrong assumption" is summary. "Agent ran the implementation,
+  captured the output, and stored that output as the test's expected
+  band" is what happened. Use the latter.
+- **No filler observations.** Do not note that two things have different
+  surfaces, that something is interesting, or that a property is true.
+  Either the sentence carries information (a name, a number, a mechanism)
+  or it does not belong.
+- **No exhaustiveness claims.** When listing causes or trade-offs, say
+  "what we caught" or "what we identified", not "the causes" or "the
+  trade-offs". The list is empirical, not a proof.
+- **Definitions over slogans.** When defining a term, give the operational
+  form (what it does, in mechanism). "The architectural answer", "the
+  cornerstone", "the foundation" are slogans, not definitions. Canonical
+  form survives re-reading.
+- **Project vocabulary only.** Do not import generic software-engineering
+  terms ("PR review", "stakeholder sign-off", "production rollout") if
+  the project's workflow does not use them. Use the project's actual
+  workflow vocabulary or describe the action concretely.
+- **Stay in lane per section.** Context describes forces. Decision locks
+  the response. Consequences flow from the decision. Trade-offs name what
+  was sacrificed. Do not put prescriptions in Context, do not put forces
+  in Decision, do not put work plans in Consequences.
+
 ## Anti-patterns
 
 - **Editing in place because "it's just a small clarification."** No. If the
@@ -98,6 +133,5 @@ written.
 ## Skill
 
 The [`/adr-author`](../../.claude/skills/adr-author/SKILL.md) skill
-operationalizes this convention. Invoke it when drafting an ADR or
-reviewing changes to an existing one. It will refuse to add disallowed
-content and will route forward work to the registry.
+applies this convention during ADR drafting and review. It will refuse to
+add disallowed content and will route forward work to the registry.

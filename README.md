@@ -76,10 +76,7 @@ across iterations.
 ## Classification service — constant infrastructure
 
 The Python service at [apps/classification/](apps/classification/) is
-deliberately not under measurement. It is shared by every .NET iteration. If
-it varied, the measurement could not distinguish "iteration 4 scored better
-because event sourcing fits" from "iteration 4 scored better because the
-classifier was more accurate that week."
+deliberately not under measurement. It is shared by every .NET iteration. 
 
 The service owns all classification intelligence — ECDF-based severity,
 surprise magnitudes, correlation deviations, LLM-judged event severities. The
@@ -97,9 +94,9 @@ dimensions, and a reasoning trace.
 
 | Route | Method | What it computes |
 | --- | --- | --- |
-| `MARKET_DATA` + `STRUCTURED` | Rule-based | ECDF rank vs. rolling level window (VIX, OVX) |
-| `MACROECONOMIC` + `STRUCTURED` | Rule-based | ECDF rank of YoY surprise vs. historical surprise distribution |
-| `CROSS_ASSET_FLOW` + `STRUCTURED` | Rule-based | Correlation deviation vs. baseline across a six-asset basket |
+| `MARKET_DATA` + `STRUCTURED` | Rule-based | ECDF rank vs. rolling level window; indicators drawn from registry (e.g. VIX, OVX) |
+| `MACROECONOMIC` + `STRUCTURED` | Rule-based | ECDF rank of YoY surprise vs. historical surprise distribution; series drawn from registry |
+| `CROSS_ASSET_FLOW` + `STRUCTURED` | Rule-based | Correlation deviation vs. baseline across a registry-governed asset basket |
 | `GEOPOLITICAL` + `STRUCTURED` | AI model | Rule score plus LLM enrichment |
 | `GEOPOLITICAL` + `UNSTRUCTURED` | AI model | LLM extraction with RAG context |
 

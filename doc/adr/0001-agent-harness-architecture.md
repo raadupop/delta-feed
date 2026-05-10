@@ -82,15 +82,15 @@ modelling error. The test suite did not catch it because every strategy
 under test had exactly one indicator — under that input shape, a
 per-strategy constant produces the same output as a per-indicator one.
 
-**Failure 2 — bands derived from execution, not from the spec
-(classification ADR-0002).** During an axis-coverage exercise, an agent
-authored both the strategy code and the corresponding expected-band
-fixtures in one pass. The agent ran the implementation, captured its
-output, and stored that output as the test's expected band. The
-fixtures were not derived from CLS-001 on paper, and no specialist
-re-derived them independently. Tests passed because they asserted the
-implementation's output back at itself; the SRS-anchored oracle was
-satisfied by tautology.
+**Failure 2 — bands derived from execution, not from the spec (classification ADR-0002).**
+While authoring axis-coverage fixtures, the operator noticed that the fixtures couldn't
+independently verify anything: a single agent had produced both the strategy code and
+the expected-band fixtures in one pass, copying the implementation's output into each
+fixture rather than deriving the bands from the SRS on paper. No specialist re-derived
+them independently. The tests passed because the "correct" answer in each fixture was
+just whatever the implementation already produced — the self-validating loop named in
+the glossary. The structural reasons this was the path of least resistance, not a
+one-off slip, are listed in the causes below.
 
 **What we caught upstream of the code.** Three causes enabled both
 failures. The list is what this analysis identified, not a claim of
